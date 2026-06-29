@@ -6,26 +6,22 @@ interface LayoutProps {
   children: ReactNode;
   hideFooter?: boolean;
   noPadding?: boolean;
-  showEchelonFooter?: boolean;
   headerRevealMode?: boolean;
 }
 
-export function Layout({ 
-  children, 
-  hideFooter = false, 
+export function Layout({
+  children,
+  hideFooter = false,
   noPadding = false,
-  showEchelonFooter = false,
   headerRevealMode = false,
 }: LayoutProps) {
   return (
     <div className="min-h-screen flex flex-col">
       <Header revealMode={headerRevealMode} />
-      <main className={`flex-1 ${noPadding ? '' : 'pt-20 md:pt-24'}`}>
+      <main className={`flex-1 ${noPadding ? '' : 'pt-16 md:pt-20'}`}>
         {children}
       </main>
-      {!hideFooter && (
-        <Footer variant={showEchelonFooter ? "echelon" : "default"} />
-      )}
+      {!hideFooter && <Footer />}
     </div>
   );
 }
