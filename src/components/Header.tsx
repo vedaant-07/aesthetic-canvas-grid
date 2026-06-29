@@ -44,15 +44,24 @@ export function Header({ revealMode = false }: HeaderProps) {
     const q = searchValue.trim();
     if (!q) return;
 
-    // Hidden admin unlock trigger.
-    // NOTE: Stage 1 — no backend validation yet. The Stage 4 work will route
-    // any string matching this pattern to the `admin-unlock/validate` edge
-    // function; until then, every search resolves to "no results" so the
-    // existence of admin is never leaked.
+    // Hidden admin unlock trigger. We always show the same "no results"
+    // toast — only a valid code silently routes to the hidden admin login.
     const ADMIN_PATTERN = /^SE7EN-ADMIN-\d{4}-[A-Z0-9]{4,}$/i;
     if (ADMIN_PATTERN.test(q)) {
-      // TODO(stage-4): POST /functions/v1/admin-unlock-validate { code: q }
-      // and on success open the hidden admin login modal.
+      try {
+        const { supabase } = await import("@/integrations/supabase/client");
+        const { setAdminToken, ADMIN_KEYS } = await import("@/admin/AdminShell");
+        const { data } = await supabase.functions.invoke("admin-unlock", { body: { code: q } });
+        if (data?.ok && data.unlock_token) {
+          setAdminToken(ADMIN_KEYS.unlock, data.unlock_token, data.expires_in ?? 300);
+          setSearchValue("");
+          setSearchOpen(false);
+          navigate("/x7-control/login");
+          return;
+        }
+      } catch {
+        // fall through to the generic "no results" response
+      }
     }
 
     toast("No results found", {
