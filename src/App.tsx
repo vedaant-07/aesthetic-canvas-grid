@@ -14,6 +14,10 @@ import Contact from "./pages/Contact";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import NotFound from "./pages/NotFound";
+import AdminLogin from "./pages/admin/AdminLogin";
+import Admin2FASetup from "./pages/admin/Admin2FASetup";
+import Admin2FAVerify from "./pages/admin/Admin2FAVerify";
+import AdminDashboard from "./pages/admin/AdminDashboard";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +38,11 @@ const App = () => (
             <Route path="/contact" element={<Contact />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/terms" element={<Terms />} />
+            {/* Hidden admin surface — not linked from anywhere public. */}
+            <Route path="/x7-control/login" element={<AdminLogin />} />
+            <Route path="/x7-control/2fa-setup" element={<Admin2FASetup />} />
+            <Route path="/x7-control/2fa" element={<Admin2FAVerify />} />
+            <Route path="/x7-control/dashboard" element={<AdminDashboard />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
