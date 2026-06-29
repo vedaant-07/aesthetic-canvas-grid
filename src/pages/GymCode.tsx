@@ -31,7 +31,7 @@ const GymCode = () => {
     sessionStorage.setItem(ACTIVATION_KEY, data.activation_token);
     sessionStorage.setItem(REQUEST_KEY, JSON.stringify(data.request));
     setValidGym(data.request?.gym_name || "Approved gym");
-    toast.success("Code verified", { description: "Continue to create or sign in to your gym-owner account." });
+    toast.success("Code verified", { description: "Continue with email OTP to activate your gym workspace." });
   };
 
   return (
@@ -46,7 +46,7 @@ const GymCode = () => {
           Activate your gym.
         </h1>
         <p className="text-lg text-foreground/70 leading-relaxed max-w-2xl">
-          Enter the single-use access code issued after admin approval. The code is validated server-side against a hashed value and never checked only in the browser.
+          Enter the single-use access code issued after admin approval. Your application ID is not an access code.
         </p>
 
         <form onSubmit={submit} className="mt-10 border border-separator bg-hover-bg/30 p-6 md:p-8 space-y-5">
@@ -67,6 +67,17 @@ const GymCode = () => {
           </button>
         </form>
 
+        <div className="mt-6 border border-separator bg-hover-bg/20 p-5 text-sm text-foreground/70 leading-relaxed">
+          <p className="mb-4">
+            New application submitted? Wait for admin approval. Once approved, use the access code sent by email here.
+          </p>
+          <div className="flex flex-wrap gap-3 text-xs uppercase tracking-widest">
+            <Link to="/gym-management/request-access" className="text-accent hover:opacity-80">Need access? Request approval</Link>
+            <span className="text-muted-foreground">·</span>
+            <Link to="/support" className="text-foreground/70 hover:text-foreground">Contact support</Link>
+          </div>
+        </div>
+
         {validGym && (
           <div className="mt-8 border border-accent/40 bg-accent/10 p-6 animate-fade-in">
             <div className="flex gap-4 items-start">
@@ -74,10 +85,10 @@ const GymCode = () => {
               <div>
                 <h2 className="font-display font-semibold text-2xl">{validGym} is approved.</h2>
                 <p className="mt-2 text-sm text-foreground/70 leading-relaxed">
-                  Continue to owner login. New owners can create an account with the approved email; existing owners can sign in and activate the gym workspace.
+                  Continue with email OTP using the approved owner email to activate the gym workspace.
                 </p>
                 <button onClick={() => navigate("/gym-management/login")} className="mt-5 inline-flex px-5 py-3 bg-foreground text-background text-xs uppercase tracking-widest font-medium">
-                  Continue to login →
+                  Continue to email OTP →
                 </button>
               </div>
             </div>
