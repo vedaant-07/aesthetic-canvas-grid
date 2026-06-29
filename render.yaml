@@ -2,7 +2,7 @@ services:
   - type: static_site
     name: se7enfit-brand-website
     branch: main
-    buildCommand: npm ci && npm run build
+    buildCommand: npm install && npm run build
     staticPublishPath: dist
     pullRequestPreviewsEnabled: false
     envVars:
