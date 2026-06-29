@@ -1,5 +1,4 @@
-// Shared helpers for the admin functions: HMAC-signed tokens + constant-time
-// string comparison. Kept tiny on purpose — no third-party deps.
+// Shared helpers for hidden/admin/gym activation functions.
 
 const encoder = new TextEncoder();
 
@@ -32,7 +31,7 @@ export function constantTimeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
-export type TokenKind = "unlock" | "admin_session";
+export type TokenKind = "unlock" | "admin_session" | "gym_activation";
 
 export async function signToken(
   secret: string,
@@ -74,7 +73,7 @@ export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-admin-session, x-unlock-token",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
 };
 
 export function json(body: unknown, status = 200) {
