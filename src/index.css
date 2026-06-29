@@ -166,6 +166,13 @@
   .image-reveal:hover img {
     @apply scale-105;
   }
+
+  .lv-input {
+    @apply w-full bg-background border border-separator px-4 py-3 text-sm font-sans
+           text-foreground placeholder:text-muted-foreground
+           focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent
+           transition-colors;
+  }
 }
 
 @layer utilities {
