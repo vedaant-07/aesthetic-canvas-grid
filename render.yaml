@@ -1,0 +1,16 @@
+services:
+  - type: static_site
+    name: se7enfit-brand-website
+    branch: main
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    pullRequestPreviewsEnabled: false
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: VITE_API_BASE_URL
+        value: https://se7en-fit-api.onrender.com/api
