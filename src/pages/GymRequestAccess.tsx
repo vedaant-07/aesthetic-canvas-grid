@@ -92,7 +92,7 @@ const GymRequestAccess = () => {
             <h1 className="font-display font-bold tracking-[-0.02em] leading-[0.95] text-[clamp(2.25rem,6vw,5rem)] mb-8">
               Thank you. We'll be in touch.
             </h1>
-            <div className="border border-separator p-8 bg-hover-bg/40 space-y-4">
+            <div className="border border-separator p-8 bg-hover-bg/40 space-y-6">
               <div className="flex gap-4 items-start">
                 <CheckCircle2 size={22} className="text-accent shrink-0 mt-1" />
                 <div className="space-y-2 text-sm text-foreground/75 leading-relaxed">
@@ -101,15 +101,24 @@ const GymRequestAccess = () => {
                     in review. Approval typically takes 1–3 business days.
                   </p>
                   <p>
-                    Approved gyms receive a single-use access code by email. The code is hashed server-side,
-                    expires, and can only be used once.
+                    Approved gyms receive a single-use access code by email. Do not use your application ID as the code.
                   </p>
                 </div>
               </div>
-              <div className="pt-4 border-t border-separator flex flex-wrap gap-3 text-xs uppercase tracking-widest">
-                <Link to="/" className="text-accent hover:opacity-80">← Back to home</Link>
-                <span className="text-muted-foreground">·</span>
+
+              <div className="grid sm:grid-cols-2 gap-3 pt-4 border-t border-separator">
+                <Link to="/gym-management/code" className="inline-flex justify-center px-5 py-3 bg-accent text-accent-foreground text-xs uppercase tracking-widest font-medium hover:opacity-90">
+                  Enter access code
+                </Link>
+                <Link to="/gym-management" className="inline-flex justify-center px-5 py-3 border border-separator text-xs uppercase tracking-widest hover:bg-hover-bg">
+                  Back to gym management
+                </Link>
+              </div>
+
+              <div className="flex flex-wrap gap-3 text-xs uppercase tracking-widest">
                 <Link to="/support" className="text-foreground/70 hover:text-foreground">Contact support</Link>
+                <span className="text-muted-foreground">·</span>
+                <Link to="/" className="text-accent hover:opacity-80">Back to home</Link>
               </div>
             </div>
           </div>
