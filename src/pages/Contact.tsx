@@ -1,64 +1,51 @@
 import { Layout } from "@/components/Layout";
-import { Mail, Phone, Instagram } from "lucide-react";
+import { Mail, Instagram, MapPin } from "lucide-react";
 
 const Contact = () => {
   return (
-    <Layout showEchelonFooter>
+    <Layout>
       <section className="container-wide py-16 md:py-24 min-h-[calc(100vh-200px)]">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
-          {/* Content */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20">
           <div className="space-y-12">
             <div>
-              <h1 className="text-display mb-6 animate-fade-in-up">
-                Let's work<br />together.
+              <p className="text-label mb-4">Contact</p>
+              <h1 className="font-display font-bold tracking-[-0.02em] leading-[0.95] text-[clamp(2.5rem,7vw,6rem)] mb-6">
+                Let's build.
               </h1>
-              <p className="text-xl text-muted-foreground animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
-                Interested in collaborating? Let's talk about your next project.
+              <p className="text-lg md:text-xl text-foreground/70 max-w-xl leading-relaxed">
+                Press, partnerships, gym-owner sales or member feedback — we read every message.
               </p>
             </div>
 
-            {/* Contact Info */}
-            <div className="space-y-6 animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
-              <a
-                href="mailto:hello@jordanstudio.com"
-                className="flex items-center gap-4 text-lg hover-highlight group"
-              >
+            <div className="space-y-5">
+              <a href="mailto:hello@se7en.fit" className="flex items-center gap-4 text-lg group">
                 <Mail size={20} className="text-muted-foreground group-hover:text-accent transition-colors" />
-                <span>hello@jordanstudio.com</span>
+                <span className="hover:text-accent transition-colors">hello@se7en.fit</span>
               </a>
-
-              <a
-                href="https://instagram.com/jordanstudio"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-4 text-lg hover-highlight group"
-              >
+              <a href="https://instagram.com/se7en.fit" target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 text-lg group">
                 <Instagram size={20} className="text-muted-foreground group-hover:text-accent transition-colors" />
-                <span>@jordanstudio</span>
+                <span className="hover:text-accent transition-colors">@se7en.fit</span>
               </a>
-
               <div className="flex items-center gap-4 text-lg text-muted-foreground">
-                <Phone size={20} />
-                <span>+55 11 9999-9999</span>
+                <MapPin size={20} />
+                <span>Built worldwide. Operated remote-first.</span>
               </div>
-            </div>
-
-            {/* Location */}
-            <div className="animate-fade-in-up" style={{ animationDelay: "0.3s" }}>
-              <p className="text-label mb-2">Based in</p>
-              <p className="text-lg">São Paulo, Brazil</p>
             </div>
           </div>
 
-          {/* Image */}
-          <div className="hidden lg:block">
-            <div className="aspect-[4/5] bg-secondary overflow-hidden">
-              <img
-                src="https://images.unsplash.com/photo-1452587925148-ce544e77e70d?w=800&h=1000&fit=crop"
-                alt="Contact"
-                className="w-full h-full object-cover"
-              />
+          <div className="border border-separator p-8 md:p-10 bg-hover-bg/30 flex flex-col justify-between min-h-[400px]">
+            <div className="space-y-4">
+              <p className="text-label">For gym owners</p>
+              <h2 className="font-display font-semibold text-2xl md:text-3xl leading-tight">
+                Looking for the gym management tool?
+              </h2>
+              <p className="text-foreground/70 leading-relaxed">
+                Apply for access, validate your unique code, or sign in to your existing account.
+              </p>
             </div>
+            <a href="/gym-management" className="mt-8 inline-flex items-center justify-center px-5 py-4 bg-accent text-accent-foreground font-medium uppercase tracking-wider text-sm hover:opacity-90 transition-opacity">
+              Go to Gym Portal →
+            </a>
           </div>
         </div>
       </section>
