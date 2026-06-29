@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -7,6 +7,8 @@ import { ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+
+const REQUEST_STATUS_KEY = "se7en.gym.request.status";
 
 const FormSchema = z.object({
   gym_name: z.string().trim().min(2, "Required").max(120),
@@ -26,6 +28,12 @@ const FormSchema = z.object({
 });
 
 type FormValues = z.infer<typeof FormSchema>;
+type RequestStatus = {
+  id: string;
+  status: "pending" | "approved" | "activated" | "rejected" | string;
+  owner_email?: string;
+  gym_name?: string;
+};
 
 const gymTypes: { value: FormValues["gym_type"]; label: string }[] = [
   { value: "commercial", label: "Commercial" },
@@ -39,7 +47,18 @@ const gymTypes: { value: FormValues["gym_type"]; label: string }[] = [
 ];
 
 const GymRequestAccess = () => {
-  const [submitted, setSubmitted] = useState<{ id: string } | null>(null);
+  const [submitted, setSubmitted] = useState<RequestStatus | null>(null);
+
+  useEffect(() => {
+    const stored = localStorage.getItem(REQUEST_STATUS_KEY);
+    if (!stored) return;
+    try {
+      const parsed = JSON.parse(stored) as RequestStatus;
+      if (parsed?.id && parsed.status !== "rejected") setSubmitted(parsed);
+    } catch {
+      localStorage.removeItem(REQUEST_STATUS_KEY);
+    }
+  }, []);
 
   const {
     register,
@@ -50,6 +69,11 @@ const GymRequestAccess = () => {
     resolver: zodResolver(FormSchema),
     defaultValues: { gym_type: undefined, website: "" },
   });
+
+  const saveStatus = (status: RequestStatus) => {
+    setSubmitted(status);
+    localStorage.setItem(REQUEST_STATUS_KEY, JSON.stringify(status));
+  };
 
   const onSubmit = async (values: FormValues) => {
     const { data, error } = await supabase.functions.invoke("submit-gym-request", {
@@ -72,8 +96,19 @@ const GymRequestAccess = () => {
       return;
     }
 
-    setSubmitted({ id: data.request_id });
+    const status: RequestStatus = {
+      id: data.request_id,
+      status: data.status ?? "pending",
+      owner_email: values.owner_email,
+      gym_name: values.gym_name,
+    };
+
+    saveStatus(status);
     reset();
+
+    if (data.duplicate) {
+      toast.info("Request already exists", { description: "Your gym owner request is already in review." });
+    }
   };
 
   return (
@@ -87,41 +122,7 @@ const GymRequestAccess = () => {
         </Link>
 
         {submitted ? (
-          <div className="animate-fade-in">
-            <p className="text-label mb-4">Application received</p>
-            <h1 className="font-display font-bold tracking-[-0.02em] leading-[0.95] text-[clamp(2.25rem,6vw,5rem)] mb-8">
-              Thank you. We'll be in touch.
-            </h1>
-            <div className="border border-separator p-8 bg-hover-bg/40 space-y-6">
-              <div className="flex gap-4 items-start">
-                <CheckCircle2 size={22} className="text-accent shrink-0 mt-1" />
-                <div className="space-y-2 text-sm text-foreground/75 leading-relaxed">
-                  <p>
-                    Your application <span className="font-mono text-foreground">{submitted.id.slice(0, 8)}</span> is
-                    in review. Approval typically takes 1–3 business days.
-                  </p>
-                  <p>
-                    Approved gyms receive a single-use access code by email. Do not use your application ID as the code.
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid sm:grid-cols-2 gap-3 pt-4 border-t border-separator">
-                <Link to="/gym-management/code" className="inline-flex justify-center px-5 py-3 bg-accent text-accent-foreground text-xs uppercase tracking-widest font-medium hover:opacity-90">
-                  Enter access code
-                </Link>
-                <Link to="/gym-management" className="inline-flex justify-center px-5 py-3 border border-separator text-xs uppercase tracking-widest hover:bg-hover-bg">
-                  Back to gym management
-                </Link>
-              </div>
-
-              <div className="flex flex-wrap gap-3 text-xs uppercase tracking-widest">
-                <Link to="/support" className="text-foreground/70 hover:text-foreground">Contact support</Link>
-                <span className="text-muted-foreground">·</span>
-                <Link to="/" className="text-accent hover:opacity-80">Back to home</Link>
-              </div>
-            </div>
-          </div>
+          <RequestStatusCard request={submitted} />
         ) : (
           <>
             <p className="text-label mb-4">Request Access</p>
@@ -133,7 +134,6 @@ const GymRequestAccess = () => {
             </p>
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-8" noValidate>
-              {/* Honeypot — kept invisible from real users + assistive tech */}
               <div aria-hidden="true" className="absolute -left-[10000px] w-px h-px overflow-hidden">
                 <label>
                   Website
@@ -224,6 +224,54 @@ const GymRequestAccess = () => {
     </Layout>
   );
 };
+
+function RequestStatusCard({ request }: { request: RequestStatus }) {
+  const isApproved = request.status === "approved";
+  const isActivated = request.status === "activated";
+
+  return (
+    <div className="animate-fade-in">
+      <p className="text-label mb-4">{isApproved ? "Application approved" : isActivated ? "Workspace activated" : "Application in review"}</p>
+      <h1 className="font-display font-bold tracking-[-0.02em] leading-[0.95] text-[clamp(2.25rem,6vw,5rem)] mb-8">
+        {isApproved ? "Access approved." : isActivated ? "Gym connected." : "Request pending."}
+      </h1>
+      <div className="border border-separator p-8 bg-hover-bg/40 space-y-6">
+        <div className="flex gap-4 items-start">
+          <CheckCircle2 size={22} className="text-accent shrink-0 mt-1" />
+          <div className="space-y-2 text-sm text-foreground/75 leading-relaxed">
+            <p>
+              Your application <span className="font-mono text-foreground">{request.id.slice(0, 8)}</span> is currently
+              <span className="font-mono text-foreground uppercase"> {request.status}</span>.
+            </p>
+            <p>
+              {isApproved
+                ? "Enter the access code sent by email to activate your gym owner workspace."
+                : isActivated
+                  ? "Your gym owner workspace is already active. Continue to the gym portal."
+                  : "Please wait for admin approval. You cannot submit another request while this one is pending."}
+            </p>
+            {request.owner_email && <p className="font-mono text-xs text-muted-foreground">{request.owner_email}</p>}
+          </div>
+        </div>
+
+        <div className="grid sm:grid-cols-2 gap-3 pt-4 border-t border-separator">
+          <Link to={isActivated ? "/gym-management/login" : "/gym-management/code"} className="inline-flex justify-center px-5 py-3 bg-accent text-accent-foreground text-xs uppercase tracking-widest font-medium hover:opacity-90">
+            {isActivated ? "Open gym portal" : "Enter access code"}
+          </Link>
+          <Link to="/gym-management" className="inline-flex justify-center px-5 py-3 border border-separator text-xs uppercase tracking-widest hover:bg-hover-bg">
+            Back to gym management
+          </Link>
+        </div>
+
+        <div className="flex flex-wrap gap-3 text-xs uppercase tracking-widest">
+          <Link to="/support" className="text-foreground/70 hover:text-foreground">Contact support</Link>
+          <span className="text-muted-foreground">·</span>
+          <Link to="/" className="text-accent hover:opacity-80">Back to home</Link>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function Field({
   label,
