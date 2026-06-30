@@ -16,3 +16,7 @@
   opacity: 0.045;
   user-select: none;
 }
+
+.form-brand-backdrop__row {
+  white-space: nowrap;
+}
