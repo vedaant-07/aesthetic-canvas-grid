@@ -18,6 +18,7 @@ import AdminLogin from "./pages/admin/AdminLogin";
 import Admin2FASetup from "./pages/admin/Admin2FASetup";
 import Admin2FAVerify from "./pages/admin/Admin2FAVerify";
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import "./form-backdrop.css";
 
 const queryClient = new QueryClient();
 

@@ -19,4 +19,31 @@
 
 .form-brand-backdrop__row {
   white-space: nowrap;
+  font-family: 'Syne', sans-serif;
+  font-size: clamp(5rem, 13vw, 15rem);
+  font-weight: 800;
+  line-height: 0.85;
+  letter-spacing: -0.06em;
+  color: hsl(var(--foreground));
+  text-transform: uppercase;
+  animation: form-brand-marquee 30s linear infinite;
+}
+
+.form-brand-backdrop__row--reverse {
+  margin-top: 2.5rem;
+  animation-direction: reverse;
+}
+
+.form-brand-backdrop + * {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes form-brand-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-35%);
+  }
 }
