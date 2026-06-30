@@ -25,7 +25,12 @@ const queryClient = new QueryClient();
 function GymAccessShell({ children }: { children: any }) {
   return (
     <>
-      <div className="form-brand-backdrop" aria-hidden="true" />
+      <div className="form-brand-backdrop" aria-hidden="true">
+        <div className="form-brand-backdrop__inner">
+          <div className="form-brand-backdrop__row">SE7EN.FIT   SE7EN.FIT   SE7EN.FIT   SE7EN.FIT</div>
+          <div className="form-brand-backdrop__row form-brand-backdrop__row--reverse">SE7EN.FIT   SE7EN.FIT   SE7EN.FIT   SE7EN.FIT</div>
+        </div>
+      </div>
       {children}
     </>
   );
