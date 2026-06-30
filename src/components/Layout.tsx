@@ -25,3 +25,5 @@ export function Layout({
     </div>
   );
 }
+
+// Layout wrapper for public pages.
