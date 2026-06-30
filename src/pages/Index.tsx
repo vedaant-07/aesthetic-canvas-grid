@@ -28,40 +28,52 @@ const Index = () => {
   return (
     <Layout>
       {/* HERO */}
-      <section className="container-wide pt-12 md:pt-20 pb-24 md:pb-32">
-        <div className="space-y-8 md:space-y-12">
-          <div className="flex items-center gap-3 text-label">
-            <span className="inline-block w-2 h-2 bg-accent" />
-            <span>The fitness app your gym actually uses</span>
-          </div>
+      <section className="relative min-h-[calc(100vh-4rem)] md:min-h-[calc(100vh-5rem)] overflow-hidden border-b border-separator">
+        <div className="absolute inset-y-0 right-0 w-full md:w-[58%] pointer-events-none">
+          <img
+            src="/hero-lifter.jpg"
+            alt="Athlete training with dumbbell"
+            className="h-full w-full object-cover object-center opacity-80 md:opacity-90"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/70 to-background/5" />
+          <div className="absolute inset-0 bg-gradient-to-b from-background/25 via-transparent to-background" />
+        </div>
 
-          <h1 className="font-display font-bold tracking-[-0.02em] leading-[0.92] text-[clamp(3rem,11vw,11rem)]">
-            Train.<br />
-            Belong.<br />
-            <span className="text-accent">Progress.</span>
-          </h1>
+        <div className="container-wide relative z-10 flex min-h-[calc(100vh-4rem)] md:min-h-[calc(100vh-5rem)] items-center py-16 md:py-24">
+          <div className="max-w-5xl">
+            <div className="flex items-center gap-3 text-label mb-10">
+              <span className="inline-block w-2 h-2 bg-accent" />
+              <span>The fitness app your gym actually uses</span>
+            </div>
 
-          <div className="grid md:grid-cols-3 gap-8 md:gap-12 pt-6 border-t border-separator">
-            <p className="md:col-span-2 text-lg md:text-2xl leading-snug text-foreground/85 max-w-3xl">
-              SE7EN FIT is a member fitness app and a gym management tool built together —
-              so your workouts, attendance, payments and progress all live in one place
-              you and your gym both love to open.
-            </p>
-            <div className="flex flex-col gap-3">
-              <Link
-                to="/gym-management/request-access"
-                className="group inline-flex items-center justify-between px-5 py-4 bg-accent text-accent-foreground font-medium uppercase tracking-wider text-sm hover:opacity-90 transition-opacity"
-              >
-                Bring SE7EN to your gym
-                <ArrowUpRight size={18} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-              </Link>
-              <Link
-                to="/contact"
-                className="group inline-flex items-center justify-between px-5 py-4 border border-separator text-foreground font-medium uppercase tracking-wider text-sm hover:border-foreground transition-colors"
-              >
-                Talk to us
-                <ArrowUpRight size={18} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-              </Link>
+            <h1 className="font-display font-bold tracking-[-0.06em] leading-[0.9] text-[clamp(4.5rem,11vw,12rem)]">
+              Train.<br />
+              Belong.<br />
+              <span className="text-accent">Progress.</span>
+            </h1>
+
+            <div className="grid md:grid-cols-3 gap-8 md:gap-12 mt-12 pt-6 border-t border-separator max-w-5xl">
+              <p className="md:col-span-2 text-lg md:text-2xl leading-snug text-foreground/85 max-w-3xl">
+                SE7EN FIT is a member fitness app and a gym management tool built together —
+                so your workouts, attendance, payments and progress all live in one place
+                you and your gym both love to open.
+              </p>
+              <div className="flex flex-col gap-3">
+                <Link
+                  to="/gym-management/request-access"
+                  className="group inline-flex items-center justify-between px-5 py-4 bg-accent text-accent-foreground font-medium uppercase tracking-wider text-sm hover:opacity-90 transition-opacity"
+                >
+                  Bring SE7EN to your gym
+                  <ArrowUpRight size={18} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                </Link>
+                <Link
+                  to="/contact"
+                  className="group inline-flex items-center justify-between px-5 py-4 border border-separator text-foreground font-medium uppercase tracking-wider text-sm hover:border-foreground transition-colors bg-background/40 backdrop-blur-sm"
+                >
+                  Talk to us
+                  <ArrowUpRight size={18} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                </Link>
+              </div>
             </div>
           </div>
         </div>
