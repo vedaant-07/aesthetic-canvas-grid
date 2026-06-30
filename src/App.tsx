@@ -21,6 +21,10 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 
 const queryClient = new QueryClient();
 
+function GymAccessShell({ children }: { children: any }) {
+  return <>{children}</>;
+}
+
 const App = () => (
   <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
     <QueryClientProvider client={queryClient}>
@@ -31,9 +35,9 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/gym-management" element={<GymManagement />} />
-            <Route path="/gym-management/request-access" element={<GymRequestAccess />} />
-            <Route path="/gym-management/code" element={<GymCode />} />
-            <Route path="/gym-management/login" element={<GymLogin />} />
+            <Route path="/gym-management/request-access" element={<GymAccessShell><GymRequestAccess /></GymAccessShell>} />
+            <Route path="/gym-management/code" element={<GymAccessShell><GymCode /></GymAccessShell>} />
+            <Route path="/gym-management/login" element={<GymAccessShell><GymLogin /></GymAccessShell>} />
             <Route path="/support" element={<Support />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/privacy" element={<Privacy />} />
