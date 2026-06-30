@@ -32,7 +32,8 @@ const Index = () => {
         <div className="absolute inset-y-0 right-0 w-full md:w-[58%] pointer-events-none">
           <img
             src="/hero-lifter.jpg"
-            alt="Athlete training with dumbbell"
+            alt=""
+            aria-hidden="true"
             className="h-full w-full object-cover object-center opacity-80 md:opacity-90"
           />
           <div className="absolute inset-0 bg-gradient-to-r from-background via-background/70 to-background/5" />
