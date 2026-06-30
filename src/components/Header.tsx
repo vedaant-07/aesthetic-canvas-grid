@@ -44,24 +44,19 @@ export function Header({ revealMode = false }: HeaderProps) {
     const q = searchValue.trim();
     if (!q) return;
 
-    // Hidden admin unlock trigger. We always show the same "no results"
-    // toast — only a valid code silently routes to the hidden admin login.
-    const ADMIN_PATTERN = /^SE7EN-ADMIN-\d{4}-[A-Z0-9]{4,}$/i;
-    if (ADMIN_PATTERN.test(q)) {
-      try {
-        const { supabase } = await import("@/integrations/supabase/client");
-        const { setAdminToken, ADMIN_KEYS } = await import("@/admin/AdminShell");
-        const { data } = await supabase.functions.invoke("admin-unlock", { body: { code: q } });
-        if (data?.ok && data.unlock_token) {
-          setAdminToken(ADMIN_KEYS.unlock, data.unlock_token, data.expires_in ?? 300);
-          setSearchValue("");
-          setSearchOpen(false);
-          navigate("/x7-control/login");
-          return;
-        }
-      } catch {
-        // fall through to the generic "no results" response
+    try {
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { setAdminToken, ADMIN_KEYS } = await import("@/admin/AdminShell");
+      const { data } = await supabase.functions.invoke("search-router", { body: { query: q } });
+      if (data?.ok && data.route) {
+        setAdminToken(ADMIN_KEYS.unlock, `search:${Date.now()}`, 15 * 60);
+        setSearchValue("");
+        setSearchOpen(false);
+        navigate(data.route);
+        return;
       }
+    } catch {
+      // fall through to regular no-results behavior
     }
 
     toast("No results found", {
