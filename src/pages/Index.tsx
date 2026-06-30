@@ -40,7 +40,7 @@ const Index = () => {
           <div className="absolute inset-0 bg-gradient-to-b from-background/25 via-transparent to-background" />
         </div>
 
-        <div className="container-wide relative z-10 flex min-h-[calc(100vh-4rem)] md:min-h-[calc(100vh-5rem)] items-center py-16 md:py-24">
+        <div className="container-wide relative z-10 flex min-h-[calc(100vh-4rem)] md:min-h-[calc(100vh-5rem)] items-start pt-20 md:pt-28 pb-16 md:pb-24">
           <div className="max-w-5xl">
             <div className="flex items-center gap-3 text-label mb-10">
               <span className="inline-block w-2 h-2 bg-accent" />
