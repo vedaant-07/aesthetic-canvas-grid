@@ -29,15 +29,15 @@ const Index = () => {
     <Layout>
       {/* HERO */}
       <section className="relative min-h-[calc(100vh-4rem)] md:min-h-[calc(100vh-5rem)] overflow-hidden border-b border-separator">
-        <div className="absolute inset-y-0 right-0 w-full translate-x-10 md:w-[54%] md:translate-x-20 lg:translate-x-28 pointer-events-none">
+        <div className="absolute -top-10 bottom-0 right-0 w-full translate-x-12 md:w-[50%] md:translate-x-24 lg:translate-x-32 pointer-events-none">
           <img
             src="/hero-lifter.jpg"
             alt=""
             aria-hidden="true"
-            className="h-full w-full object-cover object-[65%_center] opacity-95 md:opacity-100"
+            className="h-full w-full object-contain object-top opacity-95 md:opacity-100"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/45 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-transparent to-background/45" />
+          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/35 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-b from-background/5 via-transparent to-background/40" />
         </div>
 
         <div className="container-wide relative z-10 flex min-h-[calc(100vh-4rem)] md:min-h-[calc(100vh-5rem)] flex-col pt-12 md:pt-16">
