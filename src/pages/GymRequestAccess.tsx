@@ -204,14 +204,14 @@ const GymRequestAccess = () => {
                 </Field>
               </fieldset>
 
-              <div className="flex items-center justify-between pt-4 border-t border-separator">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-separator">
                 <p className="text-xs text-muted-foreground max-w-sm leading-relaxed">
-                  By submitting you confirm the information is accurate. We may contact you for verification.
+                  By submitting you confirm the information is accurate.<br />\n                  We may contact you for verification.
                 </p>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="inline-flex items-center gap-2 px-6 py-3 text-xs font-medium tracking-widest uppercase bg-accent text-accent-foreground hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+                  className="inline-flex items-center justify-center gap-2 px-6 py-3 text-xs font-medium tracking-widest uppercase bg-accent text-accent-foreground hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
                 >
                   {isSubmitting && <Loader2 size={14} className="animate-spin" />}
                   {isSubmitting ? "Submitting…" : "Submit application"}
