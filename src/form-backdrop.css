@@ -6,3 +6,13 @@
   z-index: 0;
   color: hsl(var(--foreground));
 }
+
+.form-brand-backdrop__inner {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 220vw;
+  transform: translate(-50%, -50%);
+  opacity: 0.045;
+  user-select: none;
+}
