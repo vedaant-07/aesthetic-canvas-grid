@@ -41,25 +41,25 @@ const Index = () => {
         </div>
 
         <div className="container-wide relative z-10 flex min-h-[calc(100vh-4rem)] md:min-h-[calc(100vh-5rem)] items-start pt-20 md:pt-28 pb-16 md:pb-24">
-          <div className="max-w-5xl">
+          <div className="w-full">
             <div className="flex items-center gap-3 text-label mb-10">
               <span className="inline-block w-2 h-2 bg-accent" />
               <span>The fitness app your gym actually uses</span>
             </div>
 
-            <h1 className="font-display font-bold tracking-[-0.06em] leading-[0.9] text-[clamp(4.5rem,11vw,12rem)]">
+            <h1 className="max-w-5xl font-display font-bold tracking-[-0.06em] leading-[0.9] text-[clamp(4.5rem,11vw,12rem)]">
               Train.<br />
               Belong.<br />
               <span className="text-accent">Progress.</span>
             </h1>
 
-            <div className="grid md:grid-cols-3 gap-8 md:gap-12 mt-12 pt-6 border-t border-separator max-w-5xl">
-              <p className="md:col-span-2 text-lg md:text-2xl leading-snug text-foreground/85 max-w-3xl">
+            <div className="grid md:grid-cols-[minmax(0,1fr)_310px] gap-8 md:gap-12 mt-12 pt-6 border-t border-separator w-full">
+              <p className="text-lg md:text-2xl leading-snug text-foreground/85 max-w-3xl">
                 SE7EN FIT is a member fitness app and a gym management tool built together —
                 so your workouts, attendance, payments and progress all live in one place
                 you and your gym both love to open.
               </p>
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-3 md:justify-self-end w-full md:w-[310px]">
                 <Link
                   to="/gym-management/request-access"
                   className="group inline-flex items-center justify-between px-5 py-4 bg-accent text-accent-foreground font-medium uppercase tracking-wider text-sm hover:opacity-90 transition-opacity"
