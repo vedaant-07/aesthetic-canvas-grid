@@ -22,7 +22,12 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 const queryClient = new QueryClient();
 
 function GymAccessShell({ children }: { children: any }) {
-  return <>{children}</>;
+  return (
+    <>
+      <div className="form-brand-backdrop" aria-hidden="true" />
+      {children}
+    </>
+  );
 }
 
 const App = () => (
