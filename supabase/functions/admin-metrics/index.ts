@@ -1,5 +1,5 @@
 // Returns dashboard metrics. Requires Supabase auth + admin role + an
-// admin_session token (issued by admin-session after 2FA verify).
+// admin_session token issued by admin-session after 2FA verify.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders, json, verifyToken } from "../_shared/admin.ts";
@@ -11,6 +11,7 @@ const SESSION_SECRET = Deno.env.get("ADMIN_SESSION_SECRET") ?? "";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
   const auth = req.headers.get("authorization");
   if (!auth?.startsWith("Bearer ")) return json({ error: "unauthorized" }, 401);
@@ -32,18 +33,26 @@ Deno.serve(async (req) => {
     return json({ error: "session_required" }, 401);
   }
 
-  const [pending, gyms, owners, audit] = await Promise.all([
+  const [pending, approved, activated, rejected, gyms, owners, codes, audit] = await Promise.all([
     admin.from("gym_owner_requests").select("id", { count: "exact", head: true }).eq("status", "pending"),
-    admin.from("gyms").select("id", { count: "exact", head: true }),
-    admin.from("user_roles").select("id", { count: "exact", head: true }).eq("role", "gym_owner"),
+    admin.from("gym_owner_requests").select("id", { count: "exact", head: true }).eq("status", "approved"),
+    admin.from("gym_owner_requests").select("id", { count: "exact", head: true }).eq("status", "activated"),
+    admin.from("gym_owner_requests").select("id", { count: "exact", head: true }).eq("status", "rejected"),
+    admin.from("gyms").select("gym_id", { count: "exact", head: true }),
+    admin.from("gym_owners").select("id", { count: "exact", head: true }),
+    admin.from("unique_access_codes").select("id", { count: "exact", head: true }).eq("status", "unused"),
     admin.from("audit_logs").select("id, action, actor_id, ip, created_at, metadata").order("created_at", { ascending: false }).limit(20),
   ]);
 
   return json({
     counts: {
       pending_requests: pending.count ?? 0,
+      approved_requests: approved.count ?? 0,
+      activated_requests: activated.count ?? 0,
+      rejected_requests: rejected.count ?? 0,
       gyms: gyms.count ?? 0,
       gym_owners: owners.count ?? 0,
+      unused_codes: codes.count ?? 0,
     },
     recent_audit: audit.data ?? [],
   });
