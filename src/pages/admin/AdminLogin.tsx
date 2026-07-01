@@ -21,12 +21,16 @@ export default function AdminLogin() {
     setError(null);
     setLoading(true);
     try {
+      const unlock = getAdminToken(ADMIN_KEYS.unlock);
+      if (!unlock) throw new Error("Admin unlock expired. Search the hidden phrase again.");
+
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error || !data.session) throw new Error("Invalid credentials");
 
       // Ask the server if this account is an admin and whether 2FA is set up.
       const { data: status, error: sErr } = await supabase.functions.invoke("admin-session", {
         body: { action: "status" },
+        headers: { "x-unlock-token": unlock },
       });
       if (sErr || !status) {
         await supabase.auth.signOut();
