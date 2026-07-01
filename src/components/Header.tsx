@@ -48,8 +48,8 @@ export function Header({ revealMode = false }: HeaderProps) {
       const { supabase } = await import("@/integrations/supabase/client");
       const { setAdminToken, ADMIN_KEYS } = await import("@/admin/AdminShell");
       const { data } = await supabase.functions.invoke("search-router", { body: { query: q } });
-      if (data?.ok && data.route) {
-        setAdminToken(ADMIN_KEYS.unlock, `search:${Date.now()}`, 15 * 60);
+      if (data?.ok && data.route && typeof data.unlock_token === "string") {
+        setAdminToken(ADMIN_KEYS.unlock, data.unlock_token, Number(data.expires_in) || 900);
         setSearchValue("");
         setSearchOpen(false);
         navigate(data.route);
