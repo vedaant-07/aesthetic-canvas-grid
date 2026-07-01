@@ -11,6 +11,10 @@ const Body = z.object({ activation_token: z.string().min(20) });
 function slugify(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48) || "gym";
 }
+function referralCode(value: string) {
+  const cleaned = value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6) || "SE7EN";
+  return `${cleaned}-${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -19,7 +23,10 @@ Deno.serve(async (req) => {
   const auth = req.headers.get("authorization");
   if (!auth?.startsWith("Bearer ")) return json({ error: "unauthorized" }, 401);
 
-  const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: auth } }, auth: { persistSession: false } });
+  const userClient = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: auth } },
+    auth: { persistSession: false },
+  });
   const { data: userData } = await userClient.auth.getUser();
   if (!userData?.user) return json({ error: "unauthorized" }, 401);
   const user = userData.user;
@@ -31,7 +38,11 @@ Deno.serve(async (req) => {
   if (!token?.code_id || !token?.request_id) return json({ error: "invalid_or_expired_activation" }, 401);
 
   const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
-  const { data: codeRow } = await admin.from("unique_access_codes").select("id, request_id, status, used_at").eq("id", String(token.code_id)).maybeSingle();
+  const { data: codeRow } = await admin
+    .from("unique_access_codes")
+    .select("id, request_id, status, used_at")
+    .eq("id", String(token.code_id))
+    .maybeSingle();
   if (!codeRow || codeRow.status !== "unused" || codeRow.used_at) return json({ error: "code_already_used" }, 409);
 
   const { data: request } = await admin
@@ -51,27 +62,64 @@ Deno.serve(async (req) => {
     .insert({
       name: request.gym_name,
       slug,
-      owner_id: user.id,
+      owner_user_id: user.id,
+      owner_name: request.owner_full_name,
       email: request.owner_email,
+      contact_email: request.owner_email,
       phone: request.owner_phone,
       city: request.city,
       country: request.country,
-      gym_type: request.gym_type,
-      member_capacity: request.estimated_members,
+      gym_capacity: request.estimated_members,
+      referral_code: referralCode(request.gym_name),
       status: "active",
-      branding: {},
+      partnership_status: "approved",
+      metadata: {
+        source: "gym_owner_request",
+        request_id: request.id,
+        gym_type: request.gym_type,
+      },
     })
-    .select("id, name, slug, status")
+    .select("gym_id, name, slug, status")
     .single();
   if (gymError) {
     console.error("[activate-gym-owner] gym insert error", gymError);
     return json({ error: "could_not_create_gym" }, 500);
   }
 
-  await admin.from("user_roles").insert({ user_id: user.id, role: "gym_owner", gym_id: gym.id });
-  await admin.from("profiles").upsert({ id: user.id, full_name: request.owner_full_name, phone: request.owner_phone, updated_at: new Date().toISOString() });
+  const { error: ownerError } = await admin.from("gym_owners").upsert({
+    user_id: user.id,
+    gym_id: gym.gym_id,
+    owner_name: request.owner_full_name,
+    email: request.owner_email,
+    phone: request.owner_phone,
+    kyc_status: "pending",
+    onboarding_complete: false,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "user_id,gym_id" });
+  if (ownerError) {
+    console.error("[activate-gym-owner] owner link error", ownerError);
+    return json({ error: "could_not_link_owner" }, 500);
+  }
+
+  await admin.from("user_roles").insert({ user_id: user.id, role: "gym_owner" }).select("id").maybeSingle();
+  await admin.from("profiles").upsert({
+    user_id: user.id,
+    email: request.owner_email,
+    role: "gym_owner",
+    full_name: request.owner_full_name,
+    phone: request.owner_phone,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "user_id" });
   await admin.from("unique_access_codes").update({ status: "used", used_at: new Date().toISOString(), used_by: user.id }).eq("id", codeRow.id);
-  await admin.from("audit_logs").insert({ actor_id: user.id, action: "gym_owner.activated", entity_type: "gym", entity_id: gym.id, metadata: { request_id: request.id, code_id: codeRow.id }, ip: getIp(req) });
+  await admin.from("gym_owner_requests").update({ status: "activated", updated_at: new Date().toISOString() }).eq("id", request.id);
+  await admin.from("audit_logs").insert({
+    actor_id: user.id,
+    action: "gym_owner.activated",
+    entity_type: "gym",
+    entity_id: gym.gym_id,
+    metadata: { request_id: request.id, code_id: codeRow.id },
+    ip: getIp(req),
+  });
 
   return json({ ok: true, gym });
 });
