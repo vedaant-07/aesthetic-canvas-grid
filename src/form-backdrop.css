@@ -39,6 +39,57 @@
   z-index: 1;
 }
 
+.form-brand-backdrop + .min-h-screen .container-wide.max-w-md {
+  max-width: 46rem !important;
+  min-height: calc(100vh - 3rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-top: 3rem !important;
+  padding-bottom: 3rem !important;
+}
+
+.form-brand-backdrop + .min-h-screen .container-wide.max-w-md > h1,
+.form-brand-backdrop + .min-h-screen .container-wide.max-w-md > p,
+.form-brand-backdrop + .min-h-screen .container-wide.max-w-md > form,
+.form-brand-backdrop + .min-h-screen .container-wide.max-w-md > div {
+  width: 100%;
+}
+
+.form-brand-backdrop + .min-h-screen .container-wide.max-w-md > h1 {
+  font-size: clamp(2.75rem, 5vw, 4.5rem) !important;
+  line-height: 0.92 !important;
+  letter-spacing: -0.04em !important;
+  max-width: 42rem;
+}
+
+.form-brand-backdrop + .min-h-screen .container-wide.max-w-md > p {
+  margin-top: 1rem;
+  margin-bottom: 2.25rem !important;
+  font-size: clamp(1rem, 1.3vw, 1.2rem) !important;
+  line-height: 1.6 !important;
+  max-width: 34rem;
+}
+
+.form-brand-backdrop + .min-h-screen .container-wide.max-w-md form {
+  max-width: 34rem;
+}
+
+.form-brand-backdrop + .min-h-screen .container-wide.max-w-md .lv-input {
+  min-height: 4.75rem;
+  font-size: clamp(1.5rem, 2.4vw, 2rem) !important;
+}
+
+.form-brand-backdrop + .min-h-screen .container-wide.max-w-md button[type="submit"] {
+  min-height: 4rem;
+  font-weight: 700;
+}
+
+.form-brand-backdrop + .min-h-screen .container-wide.max-w-md img[alt="2FA QR"] {
+  width: min(280px, 70vw);
+  height: min(280px, 70vw);
+}
+
 @keyframes form-brand-marquee {
   from {
     transform: translateX(0);
