@@ -55,8 +55,8 @@ const App = () => (
             <Route path="/terms" element={<Terms />} />
             {/* Hidden admin surface — not linked from anywhere public. */}
             <Route path="/x7-control/login" element={<AdminLogin />} />
-            <Route path="/x7-control/2fa-setup" element={<Admin2FASetup />} />
-            <Route path="/x7-control/2fa" element={<Admin2FAVerify />} />
+            <Route path="/x7-control/2fa-setup" element={<GymAccessShell><Admin2FASetup /></GymAccessShell>} />
+            <Route path="/x7-control/2fa" element={<GymAccessShell><Admin2FAVerify /></GymAccessShell>} />
             <Route path="/x7-control/dashboard" element={<AdminDashboard />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
