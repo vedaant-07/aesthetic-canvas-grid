@@ -39,6 +39,10 @@ export async function signToken(
   payload: Record<string, unknown>,
   ttlSeconds: number,
 ): Promise<string> {
+  if (!secret || secret.length < 32) {
+    throw new Error("ADMIN_SESSION_SECRET must be at least 32 characters.");
+  }
+
   const body = {
     k: kind,
     iat: Math.floor(Date.now() / 1000),
@@ -55,6 +59,7 @@ export async function verifyToken(
   kind: TokenKind,
   token: string,
 ): Promise<Record<string, unknown> | null> {
+  if (!secret || secret.length < 32) return null;
   if (!token || !token.includes(".")) return null;
   const [payloadB64, sigB64] = token.split(".");
   const expected = b64urlEncode(await hmac(secret, payloadB64));
@@ -69,11 +74,20 @@ export async function verifyToken(
   }
 }
 
+function configuredOrigin(): string {
+  const first = (Deno.env.get("PUBLIC_SITE_URL") || Deno.env.get("ALLOWED_ORIGINS") || "https://se7en.fit")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean)[0];
+  return first || "https://se7en.fit";
+}
+
 export const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": configuredOrigin(),
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-admin-session, x-unlock-token",
   "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
+  "Vary": "Origin",
 };
 
 export function json(body: unknown, status = 200) {
