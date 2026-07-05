@@ -52,6 +52,16 @@ const GymLogin = () => {
     return true;
   };
 
+  useEffect(() => {
+    const finishMagicLinkLogin = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) return;
+      const activated = await activateIfNeeded();
+      if (activated) setWorkspace(true);
+    };
+    finishMagicLinkLogin();
+  }, []);
+
   const sendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanEmail = email.trim().toLowerCase();
@@ -60,18 +70,21 @@ const GymLogin = () => {
     setLoading(true);
     const { error } = await supabase.auth.signInWithOtp({
       email: cleanEmail,
-      options: { shouldCreateUser: true },
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: `${window.location.origin}/gym-management/login`,
+      },
     });
     setLoading(false);
 
     if (error) {
-      toast.error("OTP not sent", { description: error.message });
+      toast.error("Email not sent", { description: error.message });
       return;
     }
 
     setEmail(cleanEmail);
     setStep("otp");
-    toast.success("OTP sent", { description: "Check your email and enter the verification code." });
+    toast.success("Login email sent", { description: "Use the 6-digit OTP if shown, or tap the sign-in link in the email." });
   };
 
   const verifyOtp = async (e: React.FormEvent) => {
@@ -91,7 +104,7 @@ const GymLogin = () => {
       if (activated) setWorkspace(true);
     } catch (err) {
       toast.error("OTP verification failed", {
-        description: err instanceof Error ? err.message : "Please check the code and try again.",
+        description: err instanceof Error ? err.message : "Please check the code and try again, or tap the sign-in link in your email.",
       });
     } finally {
       setLoading(false);
@@ -109,12 +122,12 @@ const GymLogin = () => {
 
         <p className="text-label mb-4">Gym Owner Access</p>
         <h1 className="font-display font-bold tracking-[-0.02em] leading-[0.95] text-[clamp(2.25rem,6vw,5rem)] mb-6">
-          Email OTP login.
+          Secure email login.
         </h1>
         <p className="text-lg text-foreground/70 leading-relaxed max-w-2xl mb-10">
           {request?.gym_name
-            ? `Your code is verified for ${request.gym_name}. Enter the OTP sent to the approved owner email to activate the workspace.`
-            : "Approved gym owners can sign in with a secure email OTP. New owners should validate their unique access code first."}
+            ? `Your code is verified for ${request.gym_name}. Enter the OTP if your email shows one, or tap the sign-in link to activate the workspace.`
+            : "Approved gym owners can sign in using a secure email OTP or sign-in link. New owners should validate their unique access code first."}
         </p>
 
         {step === "email" ? (
@@ -125,22 +138,22 @@ const GymLogin = () => {
             </label>
             <button disabled={loading} type="submit" className="inline-flex items-center gap-2 px-6 py-3 bg-accent text-accent-foreground uppercase tracking-widest text-xs font-medium disabled:opacity-50">
               {loading ? <Loader2 size={16} className="animate-spin" /> : <Mail size={16} />}
-              Send OTP
+              Send secure email
             </button>
           </form>
         ) : (
           <form onSubmit={verifyOtp} className="border border-separator bg-hover-bg/30 p-6 md:p-8 space-y-5">
             <div className="text-sm text-foreground/70 leading-relaxed">
-              OTP sent to <span className="font-mono text-foreground">{email}</span>
+              Login email sent to <span className="font-mono text-foreground">{email}</span>. If your email only shows a sign-in link, tap that link instead of entering an OTP.
             </div>
             <label className="block space-y-2">
               <span className="text-xs uppercase tracking-widest text-foreground/70">Email OTP</span>
-              <input className="lv-input font-mono tracking-[0.35em] text-center" value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="000000" required />
+              <input className="lv-input font-mono tracking-[0.35em] text-center" value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="000000" />
             </label>
             <div className="flex flex-wrap gap-3">
               <button disabled={loading || otp.length !== 6} type="submit" className="inline-flex items-center gap-2 px-6 py-3 bg-accent text-accent-foreground uppercase tracking-widest text-xs font-medium disabled:opacity-50">
                 {loading ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />}
-                Verify & Continue
+                Verify OTP
               </button>
               <button type="button" disabled={loading} onClick={() => setStep("email")} className="px-6 py-3 border border-separator uppercase tracking-widest text-xs disabled:opacity-50">
                 Change email
