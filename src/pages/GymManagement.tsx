@@ -6,10 +6,10 @@ const options = [
   {
     icon: UserPlus,
     kicker: "New",
-    title: "Request Access",
-    body: "Apply for the SE7EN FIT gym management tool. Every application is reviewed manually.",
-    cta: "Start request",
-    to: "/gym-management/request-access",
+    title: "Sign up & Request Access",
+    body: "Create or open your account first, then submit your gym details for manual approval.",
+    cta: "Sign up with Google",
+    to: "/gym-management/login?next=request-access",
   },
   {
     icon: KeyRound,
@@ -23,7 +23,7 @@ const options = [
     icon: LogIn,
     kicker: "Existing",
     title: "Owner Login",
-    body: "Already have a SE7EN FIT gym owner account? Sign in to your dashboard.",
+    body: "Already have a SE7EN FIT gym owner account? Sign in with Google or email OTP.",
     cta: "Sign in",
     to: "/gym-management/login",
   },
@@ -38,7 +38,7 @@ const GymManagement = () => {
           Built for the people who actually run the floor.
         </h1>
         <p className="mt-8 text-lg md:text-xl text-foreground/70 max-w-2xl leading-relaxed">
-          Members, attendance, payments, retention, staff — one operator-grade console, gated by manual approval.
+          Members, attendance, payments, retention, staff — one operator-grade console, gated by verified owner signup and manual approval.
         </p>
       </section>
 
@@ -65,8 +65,8 @@ const GymManagement = () => {
 
         <div className="mt-16 border-t border-separator pt-10 grid md:grid-cols-3 gap-8">
           <div>
-            <p className="text-label mb-2">Manual approval</p>
-            <p className="text-sm text-foreground/65 leading-relaxed">Every gym is reviewed by our team. We don't onboard at random.</p>
+            <p className="text-label mb-2">Verified signup</p>
+            <p className="text-sm text-foreground/65 leading-relaxed">Owners sign up first, so the request form can use their verified account email.</p>
           </div>
           <div>
             <p className="text-label mb-2">Single-use codes</p>
@@ -74,7 +74,7 @@ const GymManagement = () => {
           </div>
           <div>
             <p className="text-label mb-2">Data isolation</p>
-            <p className="text-sm text-foreground/65 leading-relaxed">Your dashboard only ever shows your gym's data. Enforced in the database, not the UI.</p>
+            <p className="text-sm text-foreground/65 leading-relaxed">Each dashboard only shows its own gym data. Enforced in the database, not only the UI.</p>
           </div>
         </div>
       </section>
