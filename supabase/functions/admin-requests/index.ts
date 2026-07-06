@@ -19,7 +19,7 @@ const Body = z.object({
 });
 
 function cleanCode(value: string) {
-  return value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return value.trim().toUpperCase().replace(/\s+/g, "");
 }
 async function hashCode(value: string) {
   const hash = await crypto.subtle.digest("SHA-256", encoder.encode(`${cleanCode(value)}:${codePepper}`));
