@@ -14,16 +14,35 @@ const GymCode = () => {
   const [loading, setLoading] = useState(false);
   const [validGym, setValidGym] = useState<string | null>(null);
 
+  const activateNow = async (activationToken: string) => {
+    const { data, error } = await supabase.functions.invoke("activate-gym-owner", {
+      body: { activation_token: activationToken },
+    });
+
+    if (error || !data?.ok) {
+      const reason = data?.error || error?.message || "Could not activate this gym for the signed-in account.";
+      toast.error("Activation failed", { description: reason });
+      return false;
+    }
+
+    sessionStorage.removeItem(ACTIVATION_KEY);
+    sessionStorage.removeItem(REQUEST_KEY);
+    toast.success("Gym activated", { description: `${data.gym?.name || "Your gym"} is now connected.` });
+    navigate("/gym-management/login", { replace: true });
+    return true;
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const clean = code.trim();
     if (!clean) return;
     setLoading(true);
     setValidGym(null);
+
     const { data, error } = await supabase.functions.invoke("validate-gym-code", { body: { code: clean } });
-    setLoading(false);
 
     if (error || !data?.ok) {
+      setLoading(false);
       toast.error("Code not accepted", { description: data?.error || error?.message || "Invalid, expired, used, or inactive code." });
       return;
     }
@@ -31,7 +50,16 @@ const GymCode = () => {
     sessionStorage.setItem(ACTIVATION_KEY, data.activation_token);
     sessionStorage.setItem(REQUEST_KEY, JSON.stringify(data.request));
     setValidGym(data.request?.gym_name || "Approved gym");
-    toast.success("Code verified", { description: "Continue with email OTP to activate your gym workspace." });
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (sessionData.session) {
+      await activateNow(data.activation_token);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(false);
+    toast.success("Code verified", { description: "Now sign in with the approved owner email to activate your gym workspace." });
   };
 
   return (
@@ -63,7 +91,7 @@ const GymCode = () => {
           </label>
           <button type="submit" disabled={loading} className="inline-flex items-center gap-2 px-6 py-3 bg-accent text-accent-foreground uppercase tracking-widest text-xs font-medium disabled:opacity-50">
             {loading ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />}
-            Validate code
+            {loading ? "Checking…" : "Validate code"}
           </button>
         </form>
 
@@ -85,10 +113,10 @@ const GymCode = () => {
               <div>
                 <h2 className="font-display font-semibold text-2xl">{validGym} is approved.</h2>
                 <p className="mt-2 text-sm text-foreground/70 leading-relaxed">
-                  Continue with email OTP using the approved owner email to activate the gym workspace.
+                  Continue with Google or email code using the approved owner email to activate the gym workspace.
                 </p>
                 <button onClick={() => navigate("/gym-management/login")} className="mt-5 inline-flex px-5 py-3 bg-foreground text-background text-xs uppercase tracking-widest font-medium">
-                  Continue to email OTP →
+                  Continue to login →
                 </button>
               </div>
             </div>
