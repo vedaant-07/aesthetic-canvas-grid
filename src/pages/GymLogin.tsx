@@ -107,7 +107,7 @@ const GymLogin = () => {
 
     setEmail(cleanEmail);
     setStep("otp");
-    toast.success("Login email sent", { description: "Use the 6-digit OTP if shown, or tap the sign-in link in the email." });
+    toast.success("Login email sent", { description: "Enter the code from your email, or tap the sign-in link." });
   };
 
   const verifyOtp = async (e: React.FormEvent) => {
@@ -132,7 +132,7 @@ const GymLogin = () => {
       const activated = await activateIfNeeded();
       if (activated) setWorkspace(true);
     } catch (err) {
-      toast.error("OTP verification failed", {
+      toast.error("Code verification failed", {
         description: err instanceof Error ? err.message : "Please check the code and try again, or tap the sign-in link in your email.",
       });
     } finally {
@@ -157,8 +157,8 @@ const GymLogin = () => {
           {wantsRequestAccess()
             ? "Create or sign in to your SE7EN FIT account first. We will use this verified email on the gym access request form."
             : request?.gym_name
-              ? `Your code is verified for ${request.gym_name}. Continue with Google or email OTP to activate the workspace.`
-              : "Approved gym owners can sign in with Google or secure email OTP. New owners should validate their unique access code first."}
+              ? `Your code is verified for ${request.gym_name}. Continue with Google or email code to activate the workspace.`
+              : "Approved gym owners can sign in with Google or secure email code. New owners should validate their unique access code first."}
         </p>
 
         <div className="border border-separator bg-hover-bg/30 p-6 md:p-8 space-y-5">
@@ -173,7 +173,7 @@ const GymLogin = () => {
           </button>
 
           <div className="flex items-center gap-3 text-xs uppercase tracking-widest text-muted-foreground">
-            <span className="h-px flex-1 bg-separator" /> or use email OTP <span className="h-px flex-1 bg-separator" />
+            <span className="h-px flex-1 bg-separator" /> or use email code <span className="h-px flex-1 bg-separator" />
           </div>
 
           {step === "email" ? (
@@ -190,16 +190,16 @@ const GymLogin = () => {
           ) : (
             <form onSubmit={verifyOtp} className="space-y-5">
               <div className="text-sm text-foreground/70 leading-relaxed">
-                Login email sent to <span className="font-mono text-foreground">{email}</span>. If your email only shows a sign-in link, tap that link instead of entering an OTP.
+                Login email sent to <span className="font-mono text-foreground">{email}</span>. Enter the code from your email, or tap the sign-in link.
               </div>
               <label className="block space-y-2">
-                <span className="text-xs uppercase tracking-widest text-foreground/70">Email OTP</span>
-                <input className="lv-input font-mono tracking-[0.35em] text-center" value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="000000" />
+                <span className="text-xs uppercase tracking-widest text-foreground/70">Email code</span>
+                <input className="lv-input font-mono tracking-[0.35em] text-center" value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 8))} inputMode="numeric" autoComplete="one-time-code" maxLength={8} placeholder="00000000" />
               </label>
               <div className="flex flex-wrap gap-3">
-                <button disabled={loading || otp.length !== 6} type="submit" className="inline-flex items-center gap-2 px-6 py-3 bg-accent text-accent-foreground uppercase tracking-widest text-xs font-medium disabled:opacity-50">
+                <button disabled={loading || otp.length < 6} type="submit" className="inline-flex items-center gap-2 px-6 py-3 bg-accent text-accent-foreground uppercase tracking-widest text-xs font-medium disabled:opacity-50">
                   {loading ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />}
-                  Verify OTP
+                  Verify code
                 </button>
                 <button type="button" disabled={loading} onClick={() => setStep("email")} className="px-6 py-3 border border-separator uppercase tracking-widest text-xs disabled:opacity-50">
                   Change email
