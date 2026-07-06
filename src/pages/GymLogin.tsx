@@ -19,6 +19,9 @@ const GymLogin = () => {
   const [request, setRequest] = useState<{ gym_name?: string; owner_email?: string } | null>(null);
   const [workspace, setWorkspace] = useState(false);
 
+  const wantsRequestAccess = () => new URLSearchParams(window.location.search).get("next") === "request-access";
+  const loginRedirectPath = () => wantsRequestAccess() ? "/gym-management/login?next=request-access" : "/gym-management/login";
+
   useEffect(() => {
     const stored = sessionStorage.getItem(REQUEST_KEY);
     if (stored) {
@@ -54,20 +57,27 @@ const GymLogin = () => {
   };
 
   useEffect(() => {
-    const finishMagicLinkLogin = async () => {
+    const finishLogin = async () => {
       const { data } = await supabase.auth.getSession();
       if (!data.session) return;
+
+      const hasActivationToken = Boolean(sessionStorage.getItem(ACTIVATION_KEY));
+      if (wantsRequestAccess() && !hasActivationToken) {
+        window.location.replace("/gym-management/request-access");
+        return;
+      }
+
       const activated = await activateIfNeeded();
       if (activated) setWorkspace(true);
     };
-    finishMagicLinkLogin();
+    finishLogin();
   }, []);
 
   const continueWithGoogle = async () => {
     setGoogleLoading(true);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/gym-management/login` },
+      options: { redirectTo: `${window.location.origin}${loginRedirectPath()}` },
     });
     if (error) {
       setGoogleLoading(false);
@@ -85,7 +95,7 @@ const GymLogin = () => {
       email: cleanEmail,
       options: {
         shouldCreateUser: true,
-        emailRedirectTo: `${window.location.origin}/gym-management/login`,
+        emailRedirectTo: `${window.location.origin}${loginRedirectPath()}`,
       },
     });
     setLoading(false);
@@ -113,6 +123,12 @@ const GymLogin = () => {
         type: "email",
       });
       if (error) throw error;
+
+      if (wantsRequestAccess() && !sessionStorage.getItem(ACTIVATION_KEY)) {
+        window.location.replace("/gym-management/request-access");
+        return;
+      }
+
       const activated = await activateIfNeeded();
       if (activated) setWorkspace(true);
     } catch (err) {
@@ -135,12 +151,14 @@ const GymLogin = () => {
 
         <p className="text-label mb-4">Gym Owner Access</p>
         <h1 className="font-display font-bold tracking-[-0.02em] leading-[0.95] text-[clamp(2.25rem,6vw,5rem)] mb-6">
-          Secure owner login.
+          {wantsRequestAccess() ? "Sign up with Google." : "Secure owner login."}
         </h1>
         <p className="text-lg text-foreground/70 leading-relaxed max-w-2xl mb-10">
-          {request?.gym_name
-            ? `Your code is verified for ${request.gym_name}. Continue with Google or email OTP to activate the workspace.`
-            : "Approved gym owners can sign in with Google or secure email OTP. New owners should validate their unique access code first."}
+          {wantsRequestAccess()
+            ? "Create or sign in to your SE7EN FIT account first. We will use this verified email on the gym access request form."
+            : request?.gym_name
+              ? `Your code is verified for ${request.gym_name}. Continue with Google or email OTP to activate the workspace.`
+              : "Approved gym owners can sign in with Google or secure email OTP. New owners should validate their unique access code first."}
         </p>
 
         <div className="border border-separator bg-hover-bg/30 p-6 md:p-8 space-y-5">
