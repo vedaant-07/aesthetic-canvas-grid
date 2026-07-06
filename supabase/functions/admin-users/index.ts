@@ -10,7 +10,7 @@ const SESSION_SECRET = Deno.env.get("ADMIN_SESSION_SECRET") ?? "";
 const Role = z.enum(["super_admin", "admin", "gym_owner", "gym_staff", "member"]);
 const Body = z.object({
   action: z.enum(["list", "assign_role", "remove_role"]),
-  filter: z.enum(["all", "admins", "gym_owners", "users"]).optional(),
+  filter: z.enum(["all", "active", "subscription_active", "subscription_expired", "subscription_none", "admins", "gym_owners", "users"]).optional(),
   search: z.string().trim().max(120).optional(),
   user_id: z.string().uuid().optional(),
   role_id: z.string().uuid().optional(),
@@ -19,6 +19,17 @@ const Body = z.object({
 });
 
 type AdminClient = ReturnType<typeof createClient>;
+
+type PaymentRow = {
+  id: string;
+  user_id: string | null;
+  amount: number;
+  currency: string;
+  status: string;
+  subscription_status: string;
+  paid_at: string | null;
+  created_at: string | null;
+};
 
 async function requireAdmin(req: Request) {
   const auth = req.headers.get("authorization");
@@ -38,27 +49,51 @@ function hasAnyRole(user: any, roles: string[]) {
   return user.roles.some((role: any) => roles.includes(role.role));
 }
 
+function isAccountActive(authUser: any) {
+  const bannedUntil = authUser.banned_until ? new Date(authUser.banned_until).getTime() : 0;
+  const isBanned = Number.isFinite(bannedUntil) && bannedUntil > Date.now();
+  const hasVerifiedContact = Boolean(authUser.email_confirmed_at || authUser.phone_confirmed_at || authUser.confirmed_at || authUser.last_sign_in_at);
+  return !isBanned && hasVerifiedContact;
+}
+
+function getSubscriptionState(payment?: PaymentRow | null): "active" | "expired" | "none" {
+  if (!payment) return "none";
+  const status = String(payment.subscription_status || payment.status || "").toLowerCase();
+  if (["active", "trialing", "paid", "current"].includes(status)) return "active";
+  return "expired";
+}
+
 async function listUsers(admin: AdminClient, body: z.infer<typeof Body>) {
   const { data: authData, error: authError } = await admin.auth.admin.listUsers({ page: 1, perPage: 500 });
   if (authError) return { error: authError.message };
   const authUsers = authData.users ?? [];
   const ids = authUsers.map((user: any) => user.id);
 
-  const [profilesRes, rolesRes, gymsRes] = await Promise.all([
+  const [profilesRes, rolesRes, gymsRes, paymentsRes] = await Promise.all([
     ids.length ? admin.from("profiles").select("id, full_name, phone, avatar_url, created_at, updated_at").in("id", ids) : Promise.resolve({ data: [] }),
     ids.length ? admin.from("user_roles").select("id, user_id, role, gym_id, created_at").in("user_id", ids) : Promise.resolve({ data: [] }),
     admin.from("gyms").select("id, name, status, city, owner_id"),
+    ids.length ? admin.from("payments").select("id, user_id, amount, currency, status, subscription_status, paid_at, created_at").in("user_id", ids).order("created_at", { ascending: false }) : Promise.resolve({ data: [] }),
   ]);
 
   const profiles = new Map((profilesRes.data ?? []).map((p: any) => [p.id, p]));
   const rolesMap = new Map<string, any[]>();
   for (const role of rolesRes.data ?? []) rolesMap.set(role.user_id, [...(rolesMap.get(role.user_id) ?? []), role]);
+
   const gymsByOwner = new Map<string, any[]>();
   for (const gym of gymsRes.data ?? []) if (gym.owner_id) gymsByOwner.set(gym.owner_id, [...(gymsByOwner.get(gym.owner_id) ?? []), gym]);
+
+  const latestPaymentByUser = new Map<string, PaymentRow>();
+  for (const payment of paymentsRes.data ?? []) {
+    const row = payment as PaymentRow;
+    if (row.user_id && !latestPaymentByUser.has(row.user_id)) latestPaymentByUser.set(row.user_id, row);
+  }
 
   let users = authUsers.map((authUser: any) => {
     const profile = profiles.get(authUser.id) as any;
     const roles = rolesMap.get(authUser.id) ?? [];
+    const latestPayment = latestPaymentByUser.get(authUser.id) ?? null;
+    const subscriptionState = getSubscriptionState(latestPayment);
     return {
       id: authUser.id,
       email: authUser.email ?? null,
@@ -66,24 +101,37 @@ async function listUsers(admin: AdminClient, body: z.infer<typeof Body>) {
       phone: profile?.phone ?? authUser.phone ?? null,
       created_at: authUser.created_at,
       last_sign_in_at: authUser.last_sign_in_at ?? null,
+      banned_until: authUser.banned_until ?? null,
+      is_active: isAccountActive(authUser),
+      subscription_state: subscriptionState,
+      subscription_status: latestPayment?.subscription_status ?? null,
+      latest_payment: latestPayment,
       roles,
       owned_gyms: gymsByOwner.get(authUser.id) ?? [],
     };
   });
 
+  const allUsers = users;
   const term = body.search?.toLowerCase();
   if (term) users = users.filter((user: any) => [user.email, user.full_name, user.phone].some((value) => String(value ?? "").toLowerCase().includes(term)));
+  if (body.filter === "active") users = users.filter((user: any) => user.is_active);
+  if (body.filter === "subscription_active") users = users.filter((user: any) => user.subscription_state === "active");
+  if (body.filter === "subscription_expired") users = users.filter((user: any) => user.subscription_state === "expired");
+  if (body.filter === "subscription_none") users = users.filter((user: any) => user.subscription_state === "none");
   if (body.filter === "admins") users = users.filter((user: any) => hasAnyRole(user, ["admin", "super_admin"]));
   if (body.filter === "gym_owners") users = users.filter((user: any) => hasAnyRole(user, ["gym_owner"]));
   if (body.filter === "users") users = users.filter((user: any) => !hasAnyRole(user, ["admin", "super_admin", "gym_owner"]));
 
-  const all = authUsers.map((authUser: any) => ({ roles: rolesMap.get(authUser.id) ?? [] }));
   const summary = {
-    total: authUsers.length,
-    admins: all.filter((u: any) => hasAnyRole(u, ["admin", "super_admin"])).length,
-    gym_owners: all.filter((u: any) => hasAnyRole(u, ["gym_owner"])).length,
-    normal_users: all.filter((u: any) => !hasAnyRole(u, ["admin", "super_admin", "gym_owner"])).length,
-    super_admins: all.filter((u: any) => hasAnyRole(u, ["super_admin"])).length,
+    total: allUsers.length,
+    active_users: allUsers.filter((u: any) => u.is_active).length,
+    active_subscriptions: allUsers.filter((u: any) => u.subscription_state === "active").length,
+    expired_subscriptions: allUsers.filter((u: any) => u.subscription_state === "expired").length,
+    no_subscription: allUsers.filter((u: any) => u.subscription_state === "none").length,
+    admins: allUsers.filter((u: any) => hasAnyRole(u, ["admin", "super_admin"])).length,
+    gym_owners: allUsers.filter((u: any) => hasAnyRole(u, ["gym_owner"])).length,
+    normal_users: allUsers.filter((u: any) => !hasAnyRole(u, ["admin", "super_admin", "gym_owner"])).length,
+    super_admins: allUsers.filter((u: any) => hasAnyRole(u, ["super_admin"])).length,
   };
 
   return { users, summary };
