@@ -48,6 +48,7 @@ const gymTypes: { value: FormValues["gym_type"]; label: string }[] = [
 
 const GymRequestAccess = () => {
   const [submitted, setSubmitted] = useState<RequestStatus | null>(null);
+  const [signedInEmail, setSignedInEmail] = useState("");
 
   useEffect(() => {
     const stored = localStorage.getItem(REQUEST_STATUS_KEY);
@@ -65,10 +66,27 @@ const GymRequestAccess = () => {
     handleSubmit,
     formState: { errors, isSubmitting },
     reset,
+    setValue,
   } = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
-    defaultValues: { gym_type: undefined, website: "" },
+    defaultValues: { gym_type: undefined, website: "", owner_email: "", owner_full_name: "" },
   });
+
+  useEffect(() => {
+    const applySession = (session: { user?: { email?: string | null; user_metadata?: Record<string, unknown> | null } } | null | undefined) => {
+      const user = session?.user;
+      const email = user?.email?.trim().toLowerCase();
+      if (!email) return;
+      const name = user?.user_metadata?.full_name || user?.user_metadata?.name;
+      setSignedInEmail(email);
+      setValue("owner_email", email, { shouldValidate: true });
+      if (typeof name === "string" && name.trim()) setValue("owner_full_name", name.trim(), { shouldValidate: true });
+    };
+
+    supabase.auth.getSession().then(({ data }) => applySession(data.session));
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => applySession(session));
+    return () => listener.subscription.unsubscribe();
+  }, [setValue]);
 
   const saveStatus = (status: RequestStatus) => {
     setSubmitted(status);
@@ -76,8 +94,10 @@ const GymRequestAccess = () => {
   };
 
   const onSubmit = async (values: FormValues) => {
+    const payload = { ...values, owner_email: (signedInEmail || values.owner_email).trim().toLowerCase() };
+
     const { data, error } = await supabase.functions.invoke("submit-gym-request", {
-      body: values,
+      body: payload,
     });
 
     if (error) {
@@ -99,12 +119,12 @@ const GymRequestAccess = () => {
     const status: RequestStatus = {
       id: data.request_id,
       status: data.status ?? "pending",
-      owner_email: values.owner_email,
-      gym_name: values.gym_name,
+      owner_email: payload.owner_email,
+      gym_name: payload.gym_name,
     };
 
     saveStatus(status);
-    reset();
+    reset({ gym_type: undefined, website: "", owner_email: signedInEmail, owner_full_name: "" });
 
     if (data.duplicate) {
       toast.info("Request already exists", { description: "Your gym owner request is already in review." });
@@ -129,9 +149,17 @@ const GymRequestAccess = () => {
             <h1 className="font-display font-bold tracking-[-0.02em] leading-[0.95] text-[clamp(2.25rem,6vw,5rem)] mb-6">
               Apply to use SE7EN FIT.
             </h1>
-            <p className="text-base md:text-lg text-foreground/70 leading-relaxed max-w-2xl mb-12">
+            <p className="text-base md:text-lg text-foreground/70 leading-relaxed max-w-2xl mb-8">
               Every application is reviewed manually. Approved gyms receive a single-use access code by email.
             </p>
+
+            {signedInEmail && (
+              <div className="mb-10 border border-accent/40 bg-accent/10 p-5">
+                <p className="text-xs uppercase tracking-widest text-accent mb-2">Signed in email detected</p>
+                <p className="font-mono text-sm">{signedInEmail}</p>
+                <p className="mt-2 text-xs text-muted-foreground">This email has been auto-filled for your access request.</p>
+              </div>
+            )}
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-8" noValidate>
               <div aria-hidden="true" className="absolute -left-[10000px] w-px h-px overflow-hidden">
@@ -179,8 +207,8 @@ const GymRequestAccess = () => {
                 </Field>
 
                 <div className="grid md:grid-cols-2 gap-6">
-                  <Field label="Email *" error={errors.owner_email?.message}>
-                    <input type="email" className="lv-input" {...register("owner_email")} />
+                  <Field label={signedInEmail ? "Verified email *" : "Email *"} error={errors.owner_email?.message}>
+                    <input type="email" className="lv-input" readOnly={Boolean(signedInEmail)} {...register("owner_email")} />
                   </Field>
                   <Field label="Phone" error={errors.owner_phone?.message}>
                     <input type="tel" className="lv-input" {...register("owner_phone")} />
@@ -206,7 +234,8 @@ const GymRequestAccess = () => {
 
               <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-separator">
                 <p className="text-xs text-muted-foreground max-w-sm leading-relaxed">
-                  By submitting you confirm the information is accurate.<br />\n                  We may contact you for verification.
+                  By submitting you confirm the information is accurate.<br />
+                  We may contact you for verification.
                 </p>
                 <button
                   type="submit"
