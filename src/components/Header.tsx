@@ -114,10 +114,10 @@ export function Header({ revealMode = false }: HeaderProps) {
               {mounted && (theme === "dark" ? <Sun size={18} /> : <Moon size={18} />)}
             </button>
             <Link
-              to="/gym-management"
+              to="/gym-management/login?next=request-access"
               className="ml-3 inline-flex items-center px-4 py-2 text-xs font-medium tracking-wider uppercase bg-accent text-accent-foreground hover:opacity-90 transition-opacity"
             >
-              Gym Portal
+              Sign Up
             </Link>
           </div>
 
@@ -165,11 +165,11 @@ export function Header({ revealMode = false }: HeaderProps) {
               </Link>
             ))}
             <Link
-              to="/gym-management"
+              to="/gym-management/login?next=request-access"
               onClick={() => setIsMenuOpen(false)}
               className="mt-4 inline-flex w-fit items-center px-5 py-3 text-sm font-medium uppercase tracking-wider bg-accent text-accent-foreground"
             >
-              Gym Portal →
+              Sign Up →
             </Link>
           </nav>
         </div>
