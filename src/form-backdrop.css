@@ -40,13 +40,13 @@
 }
 
 .form-brand-backdrop + .min-h-screen .container-wide.max-w-md {
-  max-width: 46rem !important;
+  max-width: 38rem !important;
   min-height: calc(100vh - 3rem);
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding-top: 3rem !important;
-  padding-bottom: 3rem !important;
+  padding-top: 2.5rem !important;
+  padding-bottom: 2.5rem !important;
 }
 
 .form-brand-backdrop + .min-h-screen .container-wide.max-w-md > h1,
@@ -57,37 +57,38 @@
 }
 
 .form-brand-backdrop + .min-h-screen .container-wide.max-w-md > h1 {
-  font-size: clamp(2.75rem, 5vw, 4.5rem) !important;
-  line-height: 0.92 !important;
+  font-size: clamp(2.15rem, 3.8vw, 3.6rem) !important;
+  line-height: 0.94 !important;
   letter-spacing: -0.04em !important;
-  max-width: 42rem;
+  max-width: 34rem;
 }
 
 .form-brand-backdrop + .min-h-screen .container-wide.max-w-md > p {
-  margin-top: 1rem;
-  margin-bottom: 2.25rem !important;
-  font-size: clamp(1rem, 1.3vw, 1.2rem) !important;
-  line-height: 1.6 !important;
-  max-width: 34rem;
+  margin-top: 0.9rem;
+  margin-bottom: 1.75rem !important;
+  font-size: clamp(0.95rem, 1.05vw, 1.05rem) !important;
+  line-height: 1.55 !important;
+  max-width: 30rem;
 }
 
 .form-brand-backdrop + .min-h-screen .container-wide.max-w-md form {
-  max-width: 34rem;
+  max-width: 30rem;
 }
 
 .form-brand-backdrop + .min-h-screen .container-wide.max-w-md .lv-input {
-  min-height: 4.75rem;
-  font-size: clamp(1.5rem, 2.4vw, 2rem) !important;
+  min-height: 3.9rem;
+  font-size: clamp(1.25rem, 1.8vw, 1.6rem) !important;
+  letter-spacing: 0.38em !important;
 }
 
 .form-brand-backdrop + .min-h-screen .container-wide.max-w-md button[type="submit"] {
-  min-height: 4rem;
+  min-height: 3.35rem;
   font-weight: 700;
 }
 
 .form-brand-backdrop + .min-h-screen .container-wide.max-w-md img[alt="2FA QR"] {
-  width: min(280px, 70vw);
-  height: min(280px, 70vw);
+  width: min(240px, 66vw);
+  height: min(240px, 66vw);
 }
 
 @keyframes form-brand-marquee {
