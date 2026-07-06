@@ -113,11 +113,14 @@ export function Header({ revealMode = false }: HeaderProps) {
             >
               {mounted && (theme === "dark" ? <Sun size={18} /> : <Moon size={18} />)}
             </button>
+            <a href="/#download-app" className="ml-3 inline-flex items-center px-4 py-2 text-xs font-medium tracking-wider uppercase border border-separator hover:bg-hover-bg transition-colors">
+              Download App
+            </a>
             <Link
               to="/gym-management/login?next=request-access"
-              className="ml-3 inline-flex items-center px-4 py-2 text-xs font-medium tracking-wider uppercase bg-accent text-accent-foreground hover:opacity-90 transition-opacity"
+              className="inline-flex items-center px-4 py-2 text-xs font-medium tracking-wider uppercase bg-accent text-accent-foreground hover:opacity-90 transition-opacity"
             >
-              Sign Up
+              Owner Portal
             </Link>
           </div>
 
@@ -164,12 +167,15 @@ export function Header({ revealMode = false }: HeaderProps) {
                 {item.label}
               </Link>
             ))}
+            <a href="/#download-app" onClick={() => setIsMenuOpen(false)} className="mt-4 inline-flex w-fit items-center px-5 py-3 text-sm font-medium uppercase tracking-wider border border-separator">
+              Download App →
+            </a>
             <Link
               to="/gym-management/login?next=request-access"
               onClick={() => setIsMenuOpen(false)}
-              className="mt-4 inline-flex w-fit items-center px-5 py-3 text-sm font-medium uppercase tracking-wider bg-accent text-accent-foreground"
+              className="inline-flex w-fit items-center px-5 py-3 text-sm font-medium uppercase tracking-wider bg-accent text-accent-foreground"
             >
-              Sign Up →
+              Owner Portal →
             </Link>
           </nav>
         </div>
