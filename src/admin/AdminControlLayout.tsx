@@ -13,23 +13,48 @@ import {
   ShieldCheck,
   Users,
   X,
+  type LucideIcon,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminShell, clearAdmin } from "@/admin/AdminShell";
 import { requireBrowserAdminSession } from "@/admin/adminApi";
 import { AdminLoadingState } from "@/admin/AdminStates";
 
-const navItems = [
+type NavItemConfig = { label: string; path: string; icon: LucideIcon };
+
+const primaryNavItems: NavItemConfig[] = [
   { label: "Overview", path: "/x7-control/dashboard", icon: LayoutDashboard },
   { label: "Gym Requests", path: "/x7-control/requests", icon: ClipboardList },
   { label: "Gyms", path: "/x7-control/gyms", icon: Building2 },
   { label: "Gym Owners", path: "/x7-control/gym-owners", icon: ShieldCheck },
-  { label: "Users & Roles", path: "/x7-control/users", icon: Users },
+];
+
+const userNavItems: NavItemConfig[] = [
+  { label: "All Users", path: "/x7-control/users?view=all", icon: Users },
+  { label: "Active Users", path: "/x7-control/users?view=active", icon: Users },
+  { label: "Active Subscription", path: "/x7-control/users?view=subscription_active", icon: BadgeIndianRupee },
+  { label: "Expired Subscription", path: "/x7-control/users?view=subscription_expired", icon: BadgeIndianRupee },
+  { label: "No Subscription", path: "/x7-control/users?view=subscription_none", icon: Users },
+];
+
+const secondaryNavItems: NavItemConfig[] = [
   { label: "Access Codes", path: "/x7-control/access-codes", icon: KeyRound },
   { label: "Payments", path: "/x7-control/payments", icon: BadgeIndianRupee },
   { label: "Audit Logs", path: "/x7-control/audit-logs", icon: Activity },
   { label: "Settings", path: "/x7-control/settings", icon: Settings },
 ];
+
+function isActiveItem(location: ReturnType<typeof useLocation>, path: string) {
+  const [pathname, query = ""] = path.split("?");
+  if (location.pathname !== pathname) return false;
+
+  const itemParams = new URLSearchParams(query);
+  const view = itemParams.get("view");
+  if (!view) return true;
+
+  const currentView = new URLSearchParams(location.search).get("view") || "all";
+  return currentView === view;
+}
 
 export function AdminControlLayout({ children, title = "SE7EN · Admin Control" }: { children: React.ReactNode; title?: string }) {
   const navigate = useNavigate();
@@ -70,6 +95,10 @@ export function AdminControlLayout({ children, title = "SE7EN · Admin Control" 
     );
   }
 
+  const renderNavItems = (items: NavItemConfig[], onClick?: () => void) => items.map((item) => (
+    <NavItem key={item.path} {...item} active={isActiveItem(location, item.path)} onClick={onClick} />
+  ));
+
   return (
     <AdminShell title={title}>
       <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,rgba(124,255,0,0.10),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.03),transparent_30%)]">
@@ -83,7 +112,16 @@ export function AdminControlLayout({ children, title = "SE7EN · Admin Control" 
               </div>
 
               <nav className="flex-1 space-y-1 overflow-y-auto p-4">
-                {navItems.map((item) => <NavItem key={item.path} {...item} active={location.pathname === item.path} />)}
+                {renderNavItems(primaryNavItems)}
+                <div className="py-3">
+                  <div className="mb-2 flex items-center gap-2 px-4 font-mono text-[10px] uppercase tracking-[0.24em] text-accent/90">
+                    <Users size={13} /> User
+                  </div>
+                  <div className="space-y-1 border-l border-separator/80 pl-3">
+                    {renderNavItems(userNavItems)}
+                  </div>
+                </div>
+                {renderNavItems(secondaryNavItems)}
               </nav>
 
               <div className="border-t border-separator p-4">
@@ -107,7 +145,14 @@ export function AdminControlLayout({ children, title = "SE7EN · Admin Control" 
               </div>
               {menuOpen && (
                 <nav className="border-t border-separator bg-background p-3">
-                  {navItems.map((item) => <NavItem key={item.path} {...item} active={location.pathname === item.path} onClick={() => setMenuOpen(false)} />)}
+                  {renderNavItems(primaryNavItems, () => setMenuOpen(false))}
+                  <div className="my-3 border-y border-separator/70 py-3">
+                    <div className="mb-2 flex items-center gap-2 px-4 font-mono text-[10px] uppercase tracking-[0.24em] text-accent/90">
+                      <Users size={13} /> User
+                    </div>
+                    {renderNavItems(userNavItems, () => setMenuOpen(false))}
+                  </div>
+                  {renderNavItems(secondaryNavItems, () => setMenuOpen(false))}
                   <button onClick={signOut} className="mt-2 flex w-full items-center gap-3 border border-separator px-4 py-3 text-xs uppercase tracking-widest text-muted-foreground">
                     <LogOut size={15} /> Sign Out
                   </button>
@@ -125,7 +170,7 @@ export function AdminControlLayout({ children, title = "SE7EN · Admin Control" 
   );
 }
 
-function NavItem({ label, path, icon: Icon, active, onClick }: { label: string; path: string; icon: typeof LayoutDashboard; active: boolean; onClick?: () => void }) {
+function NavItem({ label, path, icon: Icon, active, onClick }: { label: string; path: string; icon: LucideIcon; active: boolean; onClick?: () => void }) {
   return (
     <Link
       to={path}
