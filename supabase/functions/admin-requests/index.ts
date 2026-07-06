@@ -7,6 +7,10 @@ const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const sessionSecret = Deno.env.get("ADMIN_SESSION_SECRET") ?? "";
 const codePepper = Deno.env.get("ACCESS_CODE_PEPPER") ?? "";
+const brevoApiKey = Deno.env.get("BREVO_API_KEY") ?? "";
+const fromEmail = Deno.env.get("BREVO_FROM_EMAIL") || Deno.env.get("SE7ENFIT_FROM_EMAIL") || "";
+const fromName = Deno.env.get("BREVO_FROM_NAME") || "SE7EN FIT";
+const publicSiteUrl = (Deno.env.get("PUBLIC_SITE_URL") || "https://aesthetic-canvas-grid.onrender.com").replace(/\/$/, "");
 const encoder = new TextEncoder();
 
 const Body = z.object({
@@ -31,6 +35,46 @@ function makeCode() {
   const chars = Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
   return `SE7EN-GYM-${chars.slice(0, 4)}-${chars.slice(4, 8)}-${chars.slice(8, 12)}`;
 }
+function escapeHtml(value: string | null | undefined) {
+  return String(value ?? "").replace(/[&<>'"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[c] ?? c));
+}
+function accessCodeEmailHtml(params: { gymName: string; code: string; expiresAt: string }) {
+  const codeUrl = `${publicSiteUrl}/gym-management/code`;
+  return `
+  <div style="font-family:Inter,Arial,sans-serif;background:#050505;color:#ffffff;padding:32px;line-height:1.5">
+    <div style="max-width:640px;margin:0 auto;border:1px solid #222;padding:28px;background:#0b0b0b">
+      <div style="font-weight:800;letter-spacing:1px;margin-bottom:24px">SE7EN<span style="color:#7CFF00">FIT</span></div>
+      <h1 style="margin:0 0 12px;font-size:28px;letter-spacing:-0.02em">Gym access approved</h1>
+      <p style="color:#c8c8c8;margin:0 0 18px">Your request for <strong>${escapeHtml(params.gymName)}</strong> has been approved.</p>
+      <p style="color:#c8c8c8;margin:0 0 10px">Open the code page and enter this single-use code:</p>
+      <div style="font-size:24px;letter-spacing:3px;font-weight:700;color:#7CFF00;border:1px solid #7CFF00;padding:16px;margin:18px 0;background:#111">${escapeHtml(params.code)}</div>
+      <p style="color:#c8c8c8;margin:0 0 20px">Expires: ${escapeHtml(new Date(params.expiresAt).toLocaleString())}</p>
+      <p style="margin:24px 0"><a href="${codeUrl}" style="background:#7CFF00;color:#000;text-decoration:none;padding:12px 18px;font-weight:700;display:inline-block">Enter unique code</a></p>
+      <p style="font-size:12px;color:#888;margin-top:28px">If you are already signed in, entering the code will activate the gym dashboard directly.</p>
+    </div>
+  </div>`;
+}
+async function sendAccessCodeEmail(request: { owner_email: string; owner_full_name?: string | null; gym_name: string }, code: string, expiresAt: string) {
+  if (!brevoApiKey || !fromEmail) return { sent: false, error: "BREVO_API_KEY or BREVO_FROM_EMAIL is not configured" };
+
+  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: { "api-key": brevoApiKey, "content-type": "application/json", accept: "application/json" },
+    body: JSON.stringify({
+      sender: { email: fromEmail, name: fromName },
+      to: [{ email: request.owner_email, name: request.owner_full_name || request.owner_email }],
+      subject: `SE7EN FIT access code for ${request.gym_name}`,
+      htmlContent: accessCodeEmailHtml({ gymName: request.gym_name, code, expiresAt }),
+      textContent: `SE7EN FIT gym access approved for ${request.gym_name}. Enter this single-use code: ${code}. Open ${publicSiteUrl}/gym-management/code. Expires: ${expiresAt}`,
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    return { sent: false, error: text || `Brevo API failed with ${res.status}` };
+  }
+  return { sent: true, error: null };
+}
 
 async function requireAdmin(req: Request) {
   const auth = req.headers.get("authorization");
@@ -54,7 +98,8 @@ async function createActivationCode(admin: ReturnType<typeof createClient>, requ
   const expires_at = new Date(Date.now() + expires_in_days * 24 * 60 * 60 * 1000).toISOString();
   const { data: codeRow, error } = await admin.from("unique_access_codes").insert({ request_id, code_hash, code_prefix: code.slice(0, 16), expires_at, status: "unused" }).select("id, code_prefix, expires_at, status, created_at").single();
   if (error) return { error: error.message as string };
-  return { request, code, code_record: codeRow };
+  const email = await sendAccessCodeEmail(request, code, expires_at);
+  return { request, code, code_record: codeRow, email_sent: email.sent, email_error: email.error };
 }
 
 async function listRequests(admin: ReturnType<typeof createClient>, body: z.infer<typeof Body>) {
@@ -105,8 +150,8 @@ Deno.serve(async (req) => {
       await admin.from("audit_logs").insert({ actor_id: user.id, action: "gym_request.approve", entity_type: "gym_owner_request", entity_id: body.request_id, metadata: { status: "approved" }, ip: getIp(req) });
       const codeResult = await createActivationCode(admin, body.request_id, body.expires_in_days ?? 14);
       if ("error" in codeResult) return json({ ok: true, request: data, code_error: codeResult.error });
-      await admin.from("audit_logs").insert({ actor_id: user.id, action: "gym_code.generated", entity_type: "unique_access_code", entity_id: codeResult.code_record.id, metadata: { request_id: body.request_id }, ip: getIp(req) });
-      return json({ ok: true, request: data, code: codeResult.code, code_record: codeResult.code_record, email_sent: false, email_error: "Manual delivery required from dashboard." });
+      await admin.from("audit_logs").insert({ actor_id: user.id, action: codeResult.email_sent ? "gym_code.generated_and_emailed" : "gym_code.generated_email_failed", entity_type: "unique_access_code", entity_id: codeResult.code_record.id, metadata: { request_id: body.request_id, email_sent: codeResult.email_sent, email_error: codeResult.email_error }, ip: getIp(req) });
+      return json({ ok: true, request: data, code: codeResult.code, code_record: codeResult.code_record, email_sent: codeResult.email_sent, email_error: codeResult.email_error });
     }
 
     if (body.action === "reject") {
@@ -118,8 +163,8 @@ Deno.serve(async (req) => {
 
     const codeResult = await createActivationCode(admin, body.request_id, body.expires_in_days ?? 14);
     if ("error" in codeResult) return json({ error: codeResult.error }, 400);
-    await admin.from("audit_logs").insert({ actor_id: user.id, action: "gym_code.generated", entity_type: "unique_access_code", entity_id: codeResult.code_record.id, metadata: { request_id: body.request_id }, ip: getIp(req) });
-    return json({ ok: true, code: codeResult.code, code_record: codeResult.code_record, email_sent: false, email_error: "Manual delivery required from dashboard." });
+    await admin.from("audit_logs").insert({ actor_id: user.id, action: codeResult.email_sent ? "gym_code.generated_and_emailed" : "gym_code.generated_email_failed", entity_type: "unique_access_code", entity_id: codeResult.code_record.id, metadata: { request_id: body.request_id, email_sent: codeResult.email_sent, email_error: codeResult.email_error }, ip: getIp(req) });
+    return json({ ok: true, code: codeResult.code, code_record: codeResult.code_record, email_sent: codeResult.email_sent, email_error: codeResult.email_error });
   } catch (e) {
     if (e instanceof Response) return json({ error: await e.text() }, e.status);
     return json({ error: "server_error" }, 500);
