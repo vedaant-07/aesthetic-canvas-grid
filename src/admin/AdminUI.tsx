@@ -1,7 +1,7 @@
 import { LucideIcon } from "lucide-react";
 import { compactId, formatDateTime } from "@/admin/adminApi";
 
-export function AdminMetricCard({ icon: Icon, label, value, hint }: { icon: LucideIcon; label: string; value: string | number; hint?: string }) {
+export function AdminMetricCard({ icon: Icon, label, value, hint }: { icon: LucideIcon; label: string | number; value: string | number; hint?: string }) {
   return (
     <div className="border border-separator bg-background p-5 shadow-[0_0_40px_rgba(124,255,0,0.03)]">
       <div className="mb-5 flex items-center justify-between gap-4">
@@ -34,14 +34,20 @@ export function StatusBadge({ status }: { status?: string | null }) {
     approved: "border-accent/30 bg-accent/10 text-accent",
     activated: "border-emerald-400/30 bg-emerald-400/10 text-emerald-300",
     active: "border-emerald-400/30 bg-emerald-400/10 text-emerald-300",
+    trialing: "border-emerald-400/30 bg-emerald-400/10 text-emerald-300",
     paid: "border-emerald-400/30 bg-emerald-400/10 text-emerald-300",
+    current: "border-emerald-400/30 bg-emerald-400/10 text-emerald-300",
     unused: "border-accent/30 bg-accent/10 text-accent",
     used: "border-emerald-400/30 bg-emerald-400/10 text-emerald-300",
     rejected: "border-red-500/40 bg-red-500/10 text-red-300",
     suspended: "border-orange-500/40 bg-orange-500/10 text-orange-300",
     failed: "border-red-500/40 bg-red-500/10 text-red-300",
+    inactive: "border-orange-500/40 bg-orange-500/10 text-orange-300",
     unpaid: "border-orange-500/40 bg-orange-500/10 text-orange-300",
+    cancelled: "border-muted bg-muted/40 text-muted-foreground",
+    canceled: "border-muted bg-muted/40 text-muted-foreground",
     expired: "border-muted bg-muted/40 text-muted-foreground",
+    "no subscription": "border-separator bg-hover-bg/30 text-muted-foreground",
     revoked: "border-red-500/40 bg-red-500/10 text-red-300",
   };
   return <span className={`inline-flex border px-2 py-1 font-mono text-[10px] uppercase tracking-widest ${styles[value] ?? "border-separator text-muted-foreground"}`}>{value}</span>;
