@@ -127,8 +127,12 @@ Deno.serve(async (req) => {
     }
 
     let query = admin.from("user_roles").delete();
-    if (body.role_id) query = query.eq("id", body.role_id);
-    else query = query.eq("user_id", body.user_id).eq("role", body.role).is("gym_id", body.gym_id ?? null);
+    if (body.role_id) {
+      query = query.eq("id", body.role_id);
+    } else {
+      query = query.eq("user_id", body.user_id).eq("role", body.role);
+      query = body.gym_id ? query.eq("gym_id", body.gym_id) : query.is("gym_id", null);
+    }
     const { error } = await query;
     if (error) return json({ error: error.message }, 500);
     await admin.from("audit_logs").insert({ actor_id: user.id, action: "user_role.remove", entity_type: "user", entity_id: body.user_id, metadata: { role: body.role }, ip: getIp(req) });
