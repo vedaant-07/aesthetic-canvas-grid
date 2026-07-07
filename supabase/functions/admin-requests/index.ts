@@ -14,7 +14,7 @@ const publicSiteUrl = (Deno.env.get("PUBLIC_SITE_URL") || "https://aesthetic-can
 const encoder = new TextEncoder();
 
 const Body = z.object({
-  action: z.enum(["list", "approve", "reject", "generate_code", "save_notes"]),
+  action: z.enum(["list", "approve", "reject", "generate_code", "save_notes", "delete_request"]),
   request_id: z.string().uuid().optional(),
   status: z.enum(["all", "pending", "approved", "activated", "rejected"]).optional(),
   search: z.string().trim().max(120).optional(),
@@ -37,6 +37,9 @@ function makeCode() {
 }
 function escapeHtml(value: string | null | undefined) {
   return String(value ?? "").replace(/[&<>'"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[c] ?? c));
+}
+function unique(values: Array<string | null | undefined>) {
+  return Array.from(new Set(values.filter((v): v is string => Boolean(v))));
 }
 function accessCodeEmailHtml(params: { gymName: string; code: string; expiresAt: string }) {
   const codeUrl = `${publicSiteUrl}/gym-management/code`;
@@ -121,6 +124,70 @@ async function listRequests(admin: ReturnType<typeof createClient>, body: z.infe
   return { requests: (data ?? []).map((row: any) => ({ ...row, access_codes: codeMap.get(row.id) ?? [] })) };
 }
 
+async function deleteRequestAndGym(admin: ReturnType<typeof createClient>, request_id: string, actor_id: string, req: Request) {
+  const { data: request, error: requestError } = await admin
+    .from("gym_owner_requests")
+    .select("id, gym_name, owner_email, status")
+    .eq("id", request_id)
+    .maybeSingle();
+  if (requestError) return { error: requestError.message };
+  if (!request) return { error: "request_not_found" };
+
+  const { data: codes } = await admin.from("unique_access_codes").select("id, used_by").eq("request_id", request_id);
+  const usedByIds = unique((codes ?? []).map((c: any) => c.used_by));
+
+  const gymRows: any[] = [];
+  const { data: brandedGyms } = await admin.from("gyms").select("id, gym_id, owner_id, owner_user_id, name, email, contact_email").eq("branding->>request_id", request_id);
+  if (brandedGyms?.length) gymRows.push(...brandedGyms);
+
+  const { data: namedGyms } = await admin
+    .from("gyms")
+    .select("id, gym_id, owner_id, owner_user_id, name, email, contact_email")
+    .eq("name", request.gym_name)
+    .or(`email.eq.${request.owner_email},contact_email.eq.${request.owner_email}`);
+  if (namedGyms?.length) gymRows.push(...namedGyms);
+
+  if (usedByIds.length) {
+    const { data: ownerGyms } = await admin.from("gyms").select("id, gym_id, owner_id, owner_user_id, name, email, contact_email").in("owner_id", usedByIds);
+    if (ownerGyms?.length) gymRows.push(...ownerGyms);
+  }
+
+  const gymIds = unique(gymRows.flatMap((g) => [g.id, g.gym_id]));
+  const ownerIds = unique([...usedByIds, ...gymRows.flatMap((g) => [g.owner_id, g.owner_user_id])]);
+
+  if (gymIds.length) {
+    await admin.from("attendance").delete().in("gym_id", gymIds);
+    await admin.from("gym_payments").delete().in("gym_id", gymIds);
+    await admin.from("gym_announcements").delete().in("gym_id", gymIds);
+    await admin.from("gym_leads").delete().in("gym_id", gymIds);
+    await admin.from("equipment").delete().in("gym_id", gymIds);
+    await admin.from("gym_members").delete().in("gym_id", gymIds);
+    await admin.from("gym_owners").delete().in("gym_id", gymIds);
+    await admin.from("user_roles").delete().eq("role", "gym_owner").in("gym_id", gymIds);
+    await admin.from("gyms").delete().in("id", gymIds);
+    await admin.from("gyms").delete().in("gym_id", gymIds);
+  }
+
+  if (ownerIds.length) {
+    await admin.from("user_roles").delete().eq("role", "gym_owner").in("user_id", ownerIds);
+  }
+
+  await admin.from("unique_access_codes").delete().eq("request_id", request_id);
+  const { error: deleteRequestError } = await admin.from("gym_owner_requests").delete().eq("id", request_id);
+  if (deleteRequestError) return { error: deleteRequestError.message };
+
+  await admin.from("audit_logs").insert({
+    actor_id,
+    action: "gym_request.deleted_fake_data",
+    entity_type: "gym_owner_request",
+    entity_id: request_id,
+    metadata: { gym_name: request.gym_name, owner_email: request.owner_email, gym_ids: gymIds, owner_ids: ownerIds, code_count: codes?.length ?? 0 },
+    ip: getIp(req),
+  });
+
+  return { deleted: { request_id, gym_ids: gymIds, owner_ids: ownerIds, code_count: codes?.length ?? 0 } };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
@@ -136,6 +203,12 @@ Deno.serve(async (req) => {
       return json({ ok: true, requests: result.requests });
     }
     if (!body.request_id) return json({ error: "request_id_required" }, 400);
+
+    if (body.action === "delete_request") {
+      const result = await deleteRequestAndGym(admin, body.request_id, user.id, req);
+      if ("error" in result) return json({ error: result.error }, 500);
+      return json({ ok: true, deleted: result.deleted });
+    }
 
     if (body.action === "save_notes") {
       const { data, error } = await admin.from("gym_owner_requests").update({ reviewer_notes: body.notes ?? null, updated_at: new Date().toISOString() }).eq("id", body.request_id).select("*").single();
