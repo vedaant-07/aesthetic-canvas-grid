@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CheckCircle2, Clock3, Copy, Dumbbell, KeyRound, Loader2, LogOut, RefreshCw, ShieldAlert, XCircle } from "lucide-react";
+import { CheckCircle2, Clock3, Copy, Dumbbell, KeyRound, Loader2, LogOut, RefreshCw, ShieldAlert, Trash2, XCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminShell, ADMIN_KEYS, clearAdmin, getAdminToken } from "@/admin/AdminShell";
 import { toast } from "sonner";
@@ -35,6 +35,7 @@ type GymRequest = {
 };
 
 type Filter = "all" | "pending" | "approved" | "activated" | "rejected";
+type AdminAction = "approve" | "reject" | "generate_code" | "delete_request";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -74,7 +75,7 @@ export default function AdminDashboard() {
 
   const filteredRequests = useMemo(() => filter === "all" ? requests : requests.filter((r) => r.status === filter), [requests, filter]);
 
-  const runAction = async (request_id: string, action: "approve" | "reject" | "generate_code") => {
+  const runAction = async (request_id: string, action: AdminAction) => {
     const session = adminSession();
     if (!session) { navigate("/", { replace: true }); return; }
     setBusyId(`${request_id}:${action}`);
@@ -91,6 +92,14 @@ export default function AdminDashboard() {
       return;
     }
 
+    if (action === "delete_request") {
+      toast.success("Fake gym data deleted", {
+        description: `Removed request, codes, gym workspace and linked gym-owner role.`,
+      });
+      load();
+      return;
+    }
+
     if (data.code) {
       setPlainCode({ requestId: request_id, code: data.code, emailSent: !!data.email_sent, emailError: data.email_error ?? null });
       if (data.email_sent) toast.success(action === "approve" ? "Approved and emailed" : "Access code emailed", { description: "The gym owner has received the unique code." });
@@ -99,6 +108,18 @@ export default function AdminDashboard() {
       toast.success(action === "approve" ? "Request approved" : "Request rejected");
     }
     load();
+  };
+
+  const deleteFakeData = async (request: GymRequest) => {
+    const phrase = `DELETE ${request.gym_name}`;
+    const answer = window.prompt(
+      `This permanently deletes fake/test data for:\n\n${request.gym_name}\n${request.owner_email}\n\nIt deletes the request, access codes, active gym, gym owner role, members, attendance, payments, leads, equipment and announcements linked to this gym.\n\nType exactly: ${phrase}`
+    );
+    if (answer !== phrase) {
+      toast.info("Delete cancelled");
+      return;
+    }
+    await runAction(request.id, "delete_request");
   };
 
   const copyCode = async () => {
@@ -120,7 +141,7 @@ export default function AdminDashboard() {
           <div>
             <p className="font-mono text-[10px] tracking-[0.3em] uppercase text-accent mb-3">control room</p>
             <h1 className="font-display text-4xl md:text-6xl font-bold tracking-[-0.04em]">Admin dashboard</h1>
-            <p className="mt-3 max-w-2xl text-sm md:text-base text-foreground/60">Review gym-owner applications, approve access, automatically email single-use codes, and monitor admin events.</p>
+            <p className="mt-3 max-w-2xl text-sm md:text-base text-foreground/60">Review gym-owner applications, approve access, delete fake/test gyms, automatically email single-use codes, and monitor admin events.</p>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={load} className="inline-flex h-10 items-center gap-2 border border-separator px-4 text-xs uppercase tracking-widest hover:bg-hover-bg" title="Refresh"><RefreshCw size={14} /> Refresh</button>
@@ -161,9 +182,13 @@ export default function AdminDashboard() {
                 <div className="flex flex-wrap gap-2">{(["pending", "approved", "activated", "rejected", "all"] as Filter[]).map((f) => <button key={f} onClick={() => setFilter(f)} className={`px-3 py-2 text-[10px] uppercase tracking-widest border ${filter === f ? "border-accent bg-accent text-accent-foreground" : "border-separator text-foreground/60 hover:text-foreground"}`}>{f}</button>)}</div>
               </div>
 
+              <div className="mb-4 border border-destructive/30 bg-destructive/5 p-4 text-xs leading-relaxed text-foreground/60">
+                <span className="font-semibold text-destructive">Delete fake data</span> removes the selected request, access codes, gym workspace, linked gym owner role and gym records. It does not delete the user's Google/Supabase account.
+              </div>
+
               <div className="border border-separator divide-y divide-separator">
                 {filteredRequests.length === 0 && <div className="p-8 text-sm text-muted-foreground">No {filter === "all" ? "" : filter} requests found.</div>}
-                {filteredRequests.map((r) => <RequestCard key={r.id} request={r} busyId={busyId} onApprove={() => runAction(r.id, "approve")} onReject={() => runAction(r.id, "reject")} onGenerateCode={() => runAction(r.id, "generate_code")} />)}
+                {filteredRequests.map((r) => <RequestCard key={r.id} request={r} busyId={busyId} onApprove={() => runAction(r.id, "approve")} onReject={() => runAction(r.id, "reject")} onGenerateCode={() => runAction(r.id, "generate_code")} onDelete={() => deleteFakeData(r)} />)}
               </div>
             </div>
 
@@ -174,6 +199,7 @@ export default function AdminDashboard() {
                 <ChecklistItem done label="2FA required before dashboard session" />
                 <ChecklistItem done label="Access code generated automatically on approval" />
                 <ChecklistItem done label="Approved code email delivery connected through Brevo" />
+                <ChecklistItem done label="Fake/test gym cleanup available" />
                 <ChecklistItem done={false} label="Admin activity export/reporting pending" />
               </div>
 
@@ -196,7 +222,7 @@ function MetricCard({ icon: Icon, label, value }: { icon: typeof Clock3; label: 
   return <div className="bg-background p-5 md:p-6"><Icon size={18} className="mb-5 text-accent" /><p className="text-label mb-2">{label}</p><p className="font-display text-4xl md:text-5xl font-bold tracking-[-0.04em]">{value}</p></div>;
 }
 
-function RequestCard({ request, busyId, onApprove, onReject, onGenerateCode }: { request: GymRequest; busyId: string | null; onApprove: () => void; onReject: () => void; onGenerateCode: () => void; }) {
+function RequestCard({ request, busyId, onApprove, onReject, onGenerateCode, onDelete }: { request: GymRequest; busyId: string | null; onApprove: () => void; onReject: () => void; onGenerateCode: () => void; onDelete: () => void; }) {
   const canGenerate = request.status === "approved";
   const busy = busyId?.startsWith(`${request.id}:`);
   return (
@@ -213,6 +239,7 @@ function RequestCard({ request, busyId, onApprove, onReject, onGenerateCode }: {
           <button disabled={busy || request.status !== "pending"} onClick={onApprove} className="inline-flex items-center justify-center gap-2 border border-separator px-4 py-3 text-xs uppercase tracking-widest hover:bg-hover-bg disabled:opacity-40">{busyId === `${request.id}:approve` ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />} Approve & email code</button>
           <button disabled={busy || !canGenerate} onClick={onGenerateCode} className="inline-flex items-center justify-center gap-2 bg-accent px-4 py-3 text-xs font-semibold uppercase tracking-widest text-accent-foreground hover:opacity-90 disabled:opacity-40">{busyId === `${request.id}:generate_code` ? <Loader2 size={14} className="animate-spin" /> : <KeyRound size={14} />} Re-send code</button>
           <button disabled={busy || request.status === "rejected" || request.status === "activated"} onClick={onReject} className="inline-flex items-center justify-center gap-2 border border-destructive/50 px-4 py-3 text-xs uppercase tracking-widest text-destructive hover:bg-destructive/10 disabled:opacity-40">{busyId === `${request.id}:reject` ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />} Reject</button>
+          <button disabled={busy} onClick={onDelete} className="inline-flex items-center justify-center gap-2 border border-destructive/50 bg-destructive/5 px-4 py-3 text-xs uppercase tracking-widest text-destructive hover:bg-destructive/10 disabled:opacity-40">{busyId === `${request.id}:delete_request` ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />} Delete fake data</button>
         </div>
       </div>
     </article>
