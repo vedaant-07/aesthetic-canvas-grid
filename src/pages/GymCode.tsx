@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { ArrowLeft, CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
@@ -8,11 +8,39 @@ import { toast } from "sonner";
 const ACTIVATION_KEY = "se7en.gym.activation";
 const REQUEST_KEY = "se7en.gym.activation.request";
 
+function friendlyCodeError(error?: string) {
+  switch (error) {
+    case "code_already_used":
+      return "This access code was already used. Sign in with the approved owner email to open the dashboard.";
+    case "code_expired":
+      return "This access code expired. Ask admin to re-send a new code.";
+    case "code_not_active":
+      return "This access code is not active. Ask admin to re-send a new code.";
+    case "request_not_approved":
+      return "This request is not approved anymore. Contact admin support.";
+    case "invalid_code":
+    case "invalid_or_expired_code":
+      return "Code not found. Check the latest email and paste the full code exactly.";
+    default:
+      return error || "Invalid, expired, used, or inactive code.";
+  }
+}
+
 const GymCode = () => {
   const navigate = useNavigate();
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [validGym, setValidGym] = useState<string | null>(null);
+
+  useEffect(() => {
+    const runPendingActivation = async () => {
+      const token = sessionStorage.getItem(ACTIVATION_KEY);
+      if (!token) return;
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData.session) await activateNow(token);
+    };
+    runPendingActivation();
+  }, []);
 
   const activateNow = async (activationToken: string) => {
     const { data, error } = await supabase.functions.invoke("activate-gym-owner", {
@@ -21,7 +49,7 @@ const GymCode = () => {
 
     if (error || !data?.ok) {
       const reason = data?.error || error?.message || "Could not activate this gym for the signed-in account.";
-      toast.error("Activation failed", { description: reason });
+      toast.error("Activation failed", { description: reason === "email_mismatch" ? "Sign in with the same email that received the access code." : reason });
       return false;
     }
 
@@ -43,7 +71,11 @@ const GymCode = () => {
 
     if (error || !data?.ok) {
       setLoading(false);
-      toast.error("Code not accepted", { description: data?.error || error?.message || "Invalid, expired, used, or inactive code." });
+      const message = friendlyCodeError(data?.error || error?.message);
+      toast.error("Code not accepted", { description: message });
+      if (data?.error === "code_already_used") {
+        setTimeout(() => navigate("/gym-management/login"), 1000);
+      }
       return;
     }
 
@@ -74,7 +106,7 @@ const GymCode = () => {
           Activate your gym.
         </h1>
         <p className="text-lg text-foreground/70 leading-relaxed max-w-2xl">
-          Enter the single-use access code issued after admin approval. Your application ID is not an access code.
+          Use the latest single-use access code from your approval email. If the code was already used, sign in directly.
         </p>
 
         <form onSubmit={submit} className="mt-10 border border-separator bg-hover-bg/30 p-6 md:p-8 space-y-5">
@@ -85,7 +117,7 @@ const GymCode = () => {
               autoComplete="one-time-code"
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase())}
-              placeholder="SE7EN-GYM-XXXX-XXXX"
+              placeholder="SE7EN-GYM-XXXX-XXXX-XXXX"
               required
             />
           </label>
@@ -97,10 +129,12 @@ const GymCode = () => {
 
         <div className="mt-6 border border-separator bg-hover-bg/20 p-5 text-sm text-foreground/70 leading-relaxed">
           <p className="mb-4">
-            New application submitted? Wait for admin approval. Once approved, use the access code sent by email here.
+            Code already used? That normally means your gym is already activated. Open Owner Portal and sign in with the approved owner email.
           </p>
           <div className="flex flex-wrap gap-3 text-xs uppercase tracking-widest">
-            <Link to="/gym-management/request-access" className="text-accent hover:opacity-80">Need access? Request approval</Link>
+            <Link to="/gym-management/login" className="text-accent hover:opacity-80">Owner Portal</Link>
+            <span className="text-muted-foreground">·</span>
+            <Link to="/gym-management/request-access" className="text-foreground/70 hover:text-foreground">Request approval</Link>
             <span className="text-muted-foreground">·</span>
             <Link to="/support" className="text-foreground/70 hover:text-foreground">Contact support</Link>
           </div>
@@ -116,7 +150,7 @@ const GymCode = () => {
                   Continue with Google or email code using the approved owner email to activate the gym workspace.
                 </p>
                 <button onClick={() => navigate("/gym-management/login")} className="mt-5 inline-flex px-5 py-3 bg-foreground text-background text-xs uppercase tracking-widest font-medium">
-                  Continue to login →
+                  Continue to Owner Portal →
                 </button>
               </div>
             </div>
