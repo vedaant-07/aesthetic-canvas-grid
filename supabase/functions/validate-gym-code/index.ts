@@ -9,8 +9,12 @@ const codePepper = Deno.env.get("ACCESS_CODE_PEPPER") ?? "";
 const Body = z.object({ code: z.string().trim().min(8).max(128) });
 const encoder = new TextEncoder();
 
+function cleanCode(code: string) {
+  return code.trim().toUpperCase().replace(/\s+/g, "");
+}
+
 async function hashCode(code: string) {
-  const raw = `${code.trim().toUpperCase().replace(/\s+/g, "")}:${codePepper}`;
+  const raw = `${cleanCode(code)}:${codePepper}`;
   const hash = await crypto.subtle.digest("SHA-256", encoder.encode(raw));
   return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
@@ -22,7 +26,7 @@ Deno.serve(async (req) => {
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return json({ ok: false, error: "invalid_code" }, 400);
 
-  const clean = parsed.data.code.trim().toUpperCase().replace(/\s+/g, "");
+  const clean = cleanCode(parsed.data.code);
   const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
   const codeHash = await hashCode(clean);
 
@@ -33,14 +37,20 @@ Deno.serve(async (req) => {
     .maybeSingle();
 
   if (!codeRow) {
-    await admin.from("audit_logs").insert({ action: "gym_code.invalid", entity_type: "unique_access_code", metadata: { prefix: clean.slice(0, 8) }, ip: getIp(req) });
-    return json({ ok: false, error: "invalid_or_expired_code" }, 200);
+    await admin.from("audit_logs").insert({ action: "gym_code.invalid", entity_type: "unique_access_code", metadata: { prefix: clean.slice(0, 16) }, ip: getIp(req) });
+    return json({ ok: false, error: "invalid_code" }, 200);
   }
 
   const expired = new Date(codeRow.expires_at).getTime() <= Date.now();
-  if (codeRow.status !== "unused" || codeRow.used_at || expired) {
-    if (expired && codeRow.status === "unused") await admin.from("unique_access_codes").update({ status: "expired" }).eq("id", codeRow.id);
-    return json({ ok: false, error: "invalid_or_expired_code" }, 200);
+  if (codeRow.used_at || codeRow.status === "used") {
+    return json({ ok: false, error: "code_already_used" }, 200);
+  }
+  if (expired || codeRow.status === "expired") {
+    if (codeRow.status === "unused") await admin.from("unique_access_codes").update({ status: "expired" }).eq("id", codeRow.id);
+    return json({ ok: false, error: "code_expired" }, 200);
+  }
+  if (codeRow.status !== "unused") {
+    return json({ ok: false, error: "code_not_active" }, 200);
   }
 
   const { data: request } = await admin
