@@ -29,9 +29,6 @@ jobs:
       - name: Regenerate lock from secured dependency ranges
         run: npm install --package-lock-only --no-fund --no-audit
 
-      - name: Verify production dependency security
-        run: npm audit --omit=dev --audit-level=high
-
       - name: Commit repaired lock
         run: |
           if git diff --quiet -- package-lock.json; then
@@ -42,3 +39,6 @@ jobs:
           git add package-lock.json
           git commit -m "Repair website dependency lock"
           git push origin HEAD:${{ github.head_ref }}
+
+      - name: Verify production dependency security
+        run: npm audit --omit=dev --audit-level=high
