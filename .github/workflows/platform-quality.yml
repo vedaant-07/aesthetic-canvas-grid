@@ -50,7 +50,12 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Lint connected platform files
-        run: npx eslint src/lib/platformApi.ts src/pages/gym-owner/OwnerWorkspace.tsx src/pages/GymLogin.tsx
+        run: >-
+          npx eslint
+          src/lib/platformApi.ts
+          src/pages/gym-owner/OwnerWorkspace.tsx
+          src/pages/GymLogin.tsx
+          src/pages/admin/AdminPayments.tsx
 
       - name: Build production website
         run: npm run build
