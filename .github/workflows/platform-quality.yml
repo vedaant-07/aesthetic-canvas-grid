@@ -32,7 +32,10 @@ jobs:
       - name: Repair lock and install dependencies
         run: npm install --no-fund --no-audit
 
-      - name: Export repaired package lock
+      - name: Apply compatible security fixes
+        run: npm audit fix --omit=dev --no-fund
+
+      - name: Export repaired secure package lock
         uses: actions/upload-artifact@v4
         with:
           name: repaired-package-lock
