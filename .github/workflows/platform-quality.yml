@@ -14,6 +14,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: website-platform-quality-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -29,19 +33,8 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
-      - name: Repair lock and install dependencies
-        run: npm install --no-fund --no-audit
-
-      - name: Apply compatible security fixes
-        run: npm audit fix --omit=dev --no-fund
-
-      - name: Export repaired secure package lock
-        uses: actions/upload-artifact@v4
-        with:
-          name: repaired-package-lock
-          path: package-lock.json
-          if-no-files-found: error
-          retention-days: 3
+      - name: Install locked dependencies
+        run: npm ci --no-fund --no-audit
 
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
