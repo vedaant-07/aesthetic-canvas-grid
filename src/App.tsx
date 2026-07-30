@@ -9,6 +9,7 @@ import GymManagement from "./pages/GymManagement";
 import GymRequestAccess from "./pages/GymRequestAccess";
 import GymCode from "./pages/GymCode";
 import GymLogin from "./pages/GymLogin";
+import StaffInvitationAccept from "./pages/gym-owner/StaffInvitationAccept";
 import Support from "./pages/Support";
 import Contact from "./pages/Contact";
 import Privacy from "./pages/Privacy";
@@ -57,6 +58,7 @@ const App = () => (
             <Route path="/gym-management/request-access" element={<GymAccessShell><GymRequestAccess /></GymAccessShell>} />
             <Route path="/gym-management/code" element={<GymAccessShell><GymCode /></GymAccessShell>} />
             <Route path="/gym-management/login" element={<GymAccessShell><GymLogin /></GymAccessShell>} />
+            <Route path="/gym-management/staff/accept" element={<GymAccessShell><StaffInvitationAccept /></GymAccessShell>} />
             <Route path="/support" element={<Support />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/privacy" element={<Privacy />} />

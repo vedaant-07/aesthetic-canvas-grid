@@ -1,0 +1,51 @@
+name: Phase 3 Website Gym Operations Quality Check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/App.tsx'
+      - 'src/lib/platformApi.ts'
+      - 'src/pages/GymLogin.tsx'
+      - 'src/pages/gym-owner/OwnerWorkspacePhase3.tsx'
+      - 'src/pages/gym-owner/StaffInvitationAccept.tsx'
+      - '.github/workflows/phase3-gym-operations-quality.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --no-fund --no-audit
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: TypeScript validation
+        run: npx tsc --noEmit
+
+      - name: Lint Phase 3 website files
+        run: >-
+          npx eslint
+          src/App.tsx
+          src/lib/platformApi.ts
+          src/pages/GymLogin.tsx
+          src/pages/gym-owner/OwnerWorkspacePhase3.tsx
+          src/pages/gym-owner/StaffInvitationAccept.tsx
+
+      - name: Production website build
+        run: npm run build
