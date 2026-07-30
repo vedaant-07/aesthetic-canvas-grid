@@ -4,7 +4,7 @@ import { Layout } from "@/components/Layout";
 import { ArrowLeft, Loader2, Mail, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import OwnerWorkspace from "./gym-owner/OwnerWorkspace";
+import OwnerWorkspacePhase3 from "./gym-owner/OwnerWorkspacePhase3";
 
 const ACTIVATION_KEY = "se7en.gym.activation";
 const REQUEST_KEY = "se7en.gym.activation.request";
@@ -30,7 +30,7 @@ const GymLogin = () => {
         setRequest(parsed);
         if (parsed.owner_email) setEmail(parsed.owner_email);
       } catch {
-        /* ignore */
+        /* Ignore invalid local request state. */
       }
     }
   }, []);
@@ -70,7 +70,7 @@ const GymLogin = () => {
       const activated = await activateIfNeeded();
       if (activated) setWorkspace(true);
     };
-    finishLogin();
+    void finishLogin();
   }, []);
 
   const continueWithGoogle = async () => {
@@ -85,8 +85,8 @@ const GymLogin = () => {
     }
   };
 
-  const sendOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const sendOtp = async (event: React.FormEvent) => {
+    event.preventDefault();
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail) return;
 
@@ -110,8 +110,8 @@ const GymLogin = () => {
     toast.success("Login email sent", { description: "Enter the code from your email, or tap the sign-in link." });
   };
 
-  const verifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const verifyOtp = async (event: React.FormEvent) => {
+    event.preventDefault();
     const cleanOtp = otp.trim();
     if (cleanOtp.length < 6) return;
 
@@ -131,44 +131,44 @@ const GymLogin = () => {
 
       const activated = await activateIfNeeded();
       if (activated) setWorkspace(true);
-    } catch (err) {
+    } catch (error) {
       toast.error("Code verification failed", {
-        description: err instanceof Error ? err.message : "Please check the code and try again, or tap the sign-in link in your email.",
+        description: error instanceof Error ? error.message : "Please check the code and try again, or tap the sign-in link in your email.",
       });
     } finally {
       setLoading(false);
     }
   };
 
-  if (workspace) return <OwnerWorkspace />;
+  if (workspace) return <OwnerWorkspacePhase3 />;
 
   return (
     <Layout>
-      <section className="container-wide py-16 md:py-24 max-w-3xl">
-        <Link to="/gym-management" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-10">
+      <section className="container-wide max-w-3xl py-16 md:py-24">
+        <Link to="/gym-management" className="mb-10 inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground">
           <ArrowLeft size={14} /> Back to Gym Management
         </Link>
 
-        <p className="text-label mb-4">Gym Owner Access</p>
-        <h1 className="font-display font-bold tracking-[-0.02em] leading-[0.95] text-[clamp(2.25rem,6vw,5rem)] mb-6">
-          {wantsRequestAccess() ? "Sign up with Google." : "Secure owner login."}
+        <p className="text-label mb-4">Gym Owner and Staff Access</p>
+        <h1 className="font-display mb-6 text-[clamp(2.25rem,6vw,5rem)] font-bold leading-[0.95] tracking-[-0.02em]">
+          {wantsRequestAccess() ? "Sign up with Google." : "Secure gym login."}
         </h1>
-        <p className="text-lg text-foreground/70 leading-relaxed max-w-2xl mb-10">
+        <p className="mb-10 max-w-2xl text-lg leading-relaxed text-foreground/70">
           {wantsRequestAccess()
             ? "Create or sign in to your SE7EN FIT account first. We will use this verified email on the gym access request form."
             : request?.gym_name
               ? `Your code is verified for ${request.gym_name}. Continue with Google or email code to activate the workspace.`
-              : "Approved gym owners can sign in with Google or secure email code. New owners should validate their unique access code first."}
+              : "Approved gym owners and invited staff can sign in with Google or a secure email code. Backend permissions determine which management tools are available."}
         </p>
 
-        <div className="border border-separator bg-hover-bg/30 p-6 md:p-8 space-y-5">
+        <div className="space-y-5 border border-separator bg-hover-bg/30 p-6 md:p-8">
           <button
             type="button"
             onClick={continueWithGoogle}
             disabled={googleLoading || loading}
-            className="flex w-full items-center justify-center gap-3 px-6 py-3 bg-foreground text-background uppercase tracking-widest text-xs font-semibold hover:opacity-90 disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-3 bg-foreground px-6 py-3 text-xs font-semibold uppercase tracking-widest text-background hover:opacity-90 disabled:opacity-50"
           >
-            {googleLoading ? <Loader2 size={16} className="animate-spin" /> : <span className="grid h-5 w-5 place-items-center rounded-full bg-background text-foreground font-bold normal-case tracking-normal">G</span>}
+            {googleLoading ? <Loader2 size={16} className="animate-spin" /> : <span className="grid h-5 w-5 place-items-center rounded-full bg-background font-bold normal-case tracking-normal text-foreground">G</span>}
             Continue with Google
           </button>
 
@@ -179,29 +179,29 @@ const GymLogin = () => {
           {step === "email" ? (
             <form onSubmit={sendOtp} className="space-y-5">
               <label className="block space-y-2">
-                <span className="text-xs uppercase tracking-widest text-foreground/70">Owner email</span>
-                <input className="lv-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" required />
+                <span className="text-xs uppercase tracking-widest text-foreground/70">Account email</span>
+                <input className="lv-input" type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" required />
               </label>
-              <button disabled={loading || googleLoading} type="submit" className="inline-flex items-center gap-2 px-6 py-3 bg-accent text-accent-foreground uppercase tracking-widest text-xs font-medium disabled:opacity-50">
+              <button disabled={loading || googleLoading} type="submit" className="inline-flex items-center gap-2 bg-accent px-6 py-3 text-xs font-medium uppercase tracking-widest text-accent-foreground disabled:opacity-50">
                 {loading ? <Loader2 size={16} className="animate-spin" /> : <Mail size={16} />}
                 Send secure email
               </button>
             </form>
           ) : (
             <form onSubmit={verifyOtp} className="space-y-5">
-              <div className="text-sm text-foreground/70 leading-relaxed">
-                Login email sent to <span className="font-mono text-foreground">{email}</span>. Enter the code from your email, or tap the sign-in link.
+              <div className="text-sm leading-relaxed text-foreground/70">
+                Login email sent to <span className="font-mono text-foreground">{email}</span>. Enter the code or tap the sign-in link.
               </div>
               <label className="block space-y-2">
                 <span className="text-xs uppercase tracking-widest text-foreground/70">Email code</span>
-                <input className="lv-input font-mono tracking-[0.35em] text-center" value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 8))} inputMode="numeric" autoComplete="one-time-code" maxLength={8} placeholder="00000000" />
+                <input className="lv-input text-center font-mono tracking-[0.35em]" value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 8))} inputMode="numeric" autoComplete="one-time-code" maxLength={8} placeholder="00000000" />
               </label>
               <div className="flex flex-wrap gap-3">
-                <button disabled={loading || otp.length < 6} type="submit" className="inline-flex items-center gap-2 px-6 py-3 bg-accent text-accent-foreground uppercase tracking-widest text-xs font-medium disabled:opacity-50">
+                <button disabled={loading || otp.length < 6} type="submit" className="inline-flex items-center gap-2 bg-accent px-6 py-3 text-xs font-medium uppercase tracking-widest text-accent-foreground disabled:opacity-50">
                   {loading ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />}
                   Verify code
                 </button>
-                <button type="button" disabled={loading} onClick={() => setStep("email")} className="px-6 py-3 border border-separator uppercase tracking-widest text-xs disabled:opacity-50">
+                <button type="button" disabled={loading} onClick={() => setStep("email")} className="border border-separator px-6 py-3 text-xs uppercase tracking-widest disabled:opacity-50">
                   Change email
                 </button>
               </div>
@@ -209,8 +209,8 @@ const GymLogin = () => {
           )}
         </div>
 
-        <p className="mt-6 text-xs text-muted-foreground leading-relaxed">
-          Gym access is enforced by backend role and gym-scope checks, not by frontend UI alone.
+        <p className="mt-6 text-xs leading-relaxed text-muted-foreground">
+          Gym access and every write operation are enforced by backend role, permission and gym-scope checks.
         </p>
       </section>
     </Layout>
