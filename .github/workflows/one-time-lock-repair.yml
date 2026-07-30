@@ -1,0 +1,44 @@
+name: One-time secure package lock repair
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/one-time-lock-repair.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Regenerate lock from secured dependency ranges
+        run: npm install --package-lock-only --no-fund --no-audit
+
+      - name: Commit repaired lock
+        run: |
+          if git diff --quiet -- package-lock.json; then
+            exit 0
+          fi
+          git config user.name "SE7EN FIT Security Bot"
+          git config user.email "actions@github.com"
+          git add package-lock.json
+          git commit -m "Repair website dependency lock"
+          git push origin HEAD:${{ github.head_ref }}
+
+      - name: Verify production dependency security
+        run: npm audit --omit=dev --audit-level=high
