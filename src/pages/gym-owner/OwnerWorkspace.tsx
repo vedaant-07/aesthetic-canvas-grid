@@ -2,98 +2,472 @@ import { useEffect, useMemo, useState } from "react";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Activity, BarChart3, Bell, CalendarCheck, CheckCircle2, ClipboardList, CreditCard, Dumbbell, Loader2, LogOut, Plus, RefreshCw, Settings, UserCheck, Users, XCircle, type LucideIcon } from "lucide-react";
+import {
+  Activity,
+  BadgeIndianRupee,
+  BarChart3,
+  Bell,
+  CalendarCheck,
+  CheckCircle2,
+  ClipboardList,
+  CreditCard,
+  Dumbbell,
+  IndianRupee,
+  Loader2,
+  LogOut,
+  Megaphone,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Settings,
+  ShieldCheck,
+  ToggleLeft,
+  ToggleRight,
+  Trash2,
+  UserCheck,
+  Users,
+  Wallet,
+  XCircle,
+  type LucideIcon,
+} from "lucide-react";
+import {
+  PlatformApiError,
+  platformApi,
+  type PlatformAnnouncement,
+  type PlatformAttendance,
+  type PlatformEquipment,
+  type PlatformLead,
+  type PlatformMember,
+  type PlatformWorkspace,
+} from "@/lib/platformApi";
 
-type Gym = { id: string; name: string; city: string | null; country?: string | null; status: string; email?: string | null; phone?: string | null; gym_type?: string | null; member_capacity?: number | null; };
-type Member = { id: string; gym_id: string; full_name: string; email: string | null; phone: string | null; membership_tier: string | null; active: boolean; joined_at: string; };
-type AttendanceRow = { id: string; gym_id: string; member_id: string; checked_in_at: string; checked_out_at: string | null; method: string | null; };
-type EquipmentRow = { id: string; gym_id: string; name: string; category: string | null; quantity: number; status: string; notes: string | null; };
-type Lead = { id: string; gym_id: string; full_name: string; phone: string | null; email: string | null; source: string | null; status: string; notes: string | null; created_at: string; };
-type Payment = { id: string; gym_id: string; member_id: string | null; amount: number; currency: string; status: string; method: string | null; paid_at: string; notes: string | null; };
-type Announcement = { id: string; gym_id: string; title: string; body: string; audience: string; is_published: boolean; created_at: string; };
 type TabKey = "overview" | "members" | "attendance" | "equipment" | "leads" | "payments" | "announcements" | "reports" | "settings";
 
+type MemberForm = { name: string; email: string; phone: string; notes: string };
+type EquipmentForm = { name: string; category: string; quantity: number };
+type LeadForm = { name: string; phone: string; email: string; source: string; message: string };
+type PaymentForm = { member_id: string; amount: string; method: string; notes: string };
+type AnnouncementForm = { title: string; body: string; audience: string };
+type ProfileForm = { name: string; phone: string; email: string; address: string; city: string; state: string; pincode: string; description: string };
+
 const tabs: { key: TabKey; label: string; icon: LucideIcon }[] = [
-  { key: "overview", label: "Overview", icon: BarChart3 }, { key: "members", label: "Members", icon: Users }, { key: "attendance", label: "Attendance", icon: CalendarCheck }, { key: "equipment", label: "Equipment", icon: Dumbbell },
-  { key: "leads", label: "Leads", icon: UserCheck }, { key: "payments", label: "Payments", icon: CreditCard }, { key: "announcements", label: "Announcements", icon: Bell }, { key: "reports", label: "Reports", icon: ClipboardList }, { key: "settings", label: "Settings", icon: Settings },
+  { key: "overview", label: "Overview", icon: BarChart3 },
+  { key: "members", label: "Members", icon: Users },
+  { key: "attendance", label: "Attendance", icon: CalendarCheck },
+  { key: "equipment", label: "Equipment", icon: Dumbbell },
+  { key: "leads", label: "Leads", icon: UserCheck },
+  { key: "payments", label: "Gym Payments", icon: CreditCard },
+  { key: "announcements", label: "Announcements", icon: Bell },
+  { key: "reports", label: "Commission & Reports", icon: ClipboardList },
+  { key: "settings", label: "Settings", icon: Settings },
 ];
 
-const todayKey = () => new Date().toISOString().slice(0, 10);
-const formatDate = (value?: string | null) => value ? new Date(value).toLocaleString() : "—";
-const sameMonth = (value: string) => { const d = new Date(value); const now = new Date(); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); };
-const money = (amount: number, currency = "INR") => new Intl.NumberFormat("en-IN", { style: "currency", currency }).format(Number(amount || 0));
-const actionClass = "inline-flex items-center gap-2 border border-separator px-4 py-3 text-xs uppercase tracking-widest hover:bg-hover-bg text-left";
+const emptyMember: MemberForm = { name: "", email: "", phone: "", notes: "" };
+const emptyEquipment: EquipmentForm = { name: "", category: "Strength", quantity: 1 };
+const emptyLead: LeadForm = { name: "", phone: "", email: "", source: "Walk-in", message: "" };
+const emptyPayment: PaymentForm = { member_id: "", amount: "", method: "cash", notes: "" };
+const emptyAnnouncement: AnnouncementForm = { title: "", body: "", audience: "all_members" };
 
-export default function OwnerWorkspace() {
-  const db = supabase as any;
-  const [loading, setLoading] = useState(true); const [saving, setSaving] = useState(false); const [tab, setTab] = useState<TabKey>("overview");
-  const [gym, setGym] = useState<Gym | null>(null); const [members, setMembers] = useState<Member[]>([]); const [attendance, setAttendance] = useState<AttendanceRow[]>([]); const [equipment, setEquipment] = useState<EquipmentRow[]>([]);
-  const [leads, setLeads] = useState<Lead[]>([]); const [payments, setPayments] = useState<Payment[]>([]); const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [memberForm, setMemberForm] = useState({ full_name: "", email: "", phone: "", membership_tier: "Monthly" }); const [attendanceMemberId, setAttendanceMemberId] = useState(""); const [equipmentForm, setEquipmentForm] = useState({ name: "", category: "Strength", quantity: 1, notes: "" });
-  const [leadForm, setLeadForm] = useState({ full_name: "", phone: "", email: "", source: "Walk-in", notes: "" }); const [paymentForm, setPaymentForm] = useState({ member_id: "", amount: "", method: "cash", notes: "" }); const [announcementForm, setAnnouncementForm] = useState({ title: "", body: "", audience: "all_members" });
+const todayKey = () => new Date().toLocaleDateString("en-CA");
+const itemId = (item: { id?: string; membership_id?: string; log_id?: string; equipment_id?: string; lead_id?: string }) => item.id || item.membership_id || item.log_id || item.equipment_id || item.lead_id || "";
+const formatDate = (value?: string | null) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
+};
+const formatMoney = (value: number, currency = "INR") => new Intl.NumberFormat("en-IN", { style: "currency", currency, maximumFractionDigits: 2 }).format(Number(value || 0));
 
-  const activeMembers = useMemo(() => members.filter((m) => m.active !== false), [members]); const todayAttendance = useMemo(() => attendance.filter((a) => a.checked_in_at?.slice(0, 10) === todayKey()), [attendance]); const openAttendance = useMemo(() => attendance.filter((a) => !a.checked_out_at), [attendance]); const monthlyAttendance = useMemo(() => attendance.filter((a) => sameMonth(a.checked_in_at)), [attendance]); const monthlyRevenue = useMemo(() => payments.filter((p) => sameMonth(p.paid_at) && p.status !== "failed").reduce((sum, p) => sum + Number(p.amount || 0), 0), [payments]);
-
-  const load = async () => {
-    setLoading(true);
-    try {
-      const { data: sessionData } = await supabase.auth.getSession(); const user = sessionData.session?.user; if (!user) { setGym(null); return; }
-      const { data: roleRows } = await db.from("user_roles").select("gym_id").eq("user_id", user.id).eq("role", "gym_owner").limit(1);
-      let gymRow: Gym | null = null; const linkedGymId = roleRows?.[0]?.gym_id;
-      if (linkedGymId) { const { data } = await db.from("gyms").select("id,name,city,country,status,email,phone,gym_type,member_capacity").eq("id", linkedGymId).maybeSingle(); gymRow = data; }
-      if (!gymRow) { const { data } = await db.from("gyms").select("id,name,city,country,status,email,phone,gym_type,member_capacity").eq("owner_id", user.id).order("created_at", { ascending: false }).limit(1).maybeSingle(); gymRow = data; }
-      if (!gymRow) { setGym(null); return; } setGym(gymRow);
-      const safe = async (q: Promise<any>) => { const r = await q; return r?.error ? [] : (r?.data ?? []); };
-      const [memberRows, attendanceRows, equipmentRows, leadRows, paymentRows, announcementRows] = await Promise.all([
-        safe(db.from("gym_members").select("*").eq("gym_id", gymRow.id).order("joined_at", { ascending: false })), safe(db.from("attendance").select("*").eq("gym_id", gymRow.id).order("checked_in_at", { ascending: false }).limit(200)), safe(db.from("equipment").select("*").eq("gym_id", gymRow.id).order("created_at", { ascending: false })), safe(db.from("gym_leads").select("*").eq("gym_id", gymRow.id).order("created_at", { ascending: false })), safe(db.from("gym_payments").select("*").eq("gym_id", gymRow.id).order("paid_at", { ascending: false }).limit(200)), safe(db.from("gym_announcements").select("*").eq("gym_id", gymRow.id).order("created_at", { ascending: false })),
-      ]);
-      setMembers(memberRows); setAttendance(attendanceRows); setEquipment(equipmentRows); setLeads(leadRows); setPayments(paymentRows); setAnnouncements(announcementRows);
-    } catch (error) { toast.error("Could not load gym workspace", { description: error instanceof Error ? error.message : "Please refresh and try again." }); } finally { setLoading(false); }
-  };
-  useEffect(() => { load(); }, []);
-  const logout = async () => { await supabase.auth.signOut(); window.location.href = "/"; };
-  const save = async (work: Promise<any>, success: string, reset?: () => void) => { setSaving(true); const { error } = await work; setSaving(false); if (error) return toast.error("Action failed", { description: error.message }); toast.success(success); reset?.(); load(); };
-  const addMember = (e: React.FormEvent) => { e.preventDefault(); if (!gym || !memberForm.full_name.trim()) return; save(db.from("gym_members").insert({ gym_id: gym.id, full_name: memberForm.full_name.trim(), email: memberForm.email.trim() || null, phone: memberForm.phone.trim() || null, membership_tier: memberForm.membership_tier.trim() || "Monthly", active: true }), "Member added", () => setMemberForm({ full_name: "", email: "", phone: "", membership_tier: "Monthly" })); };
-  const toggleMember = (member: Member) => save(db.from("gym_members").update({ active: !member.active }).eq("id", member.id).eq("gym_id", member.gym_id), member.active ? "Member deactivated" : "Member activated");
-  const checkIn = (e: React.FormEvent) => { e.preventDefault(); if (!gym || !attendanceMemberId) return; save(db.from("attendance").insert({ gym_id: gym.id, member_id: attendanceMemberId, method: "manual", checked_in_at: new Date().toISOString() }), "Member checked in", () => setAttendanceMemberId("")); };
-  const checkOut = (row: AttendanceRow) => save(db.from("attendance").update({ checked_out_at: new Date().toISOString() }).eq("id", row.id).eq("gym_id", row.gym_id), "Member checked out");
-  const addEquipment = (e: React.FormEvent) => { e.preventDefault(); if (!gym || !equipmentForm.name.trim()) return; save(db.from("equipment").insert({ gym_id: gym.id, name: equipmentForm.name.trim(), category: equipmentForm.category.trim() || null, quantity: Number(equipmentForm.quantity || 1), status: "active", notes: equipmentForm.notes.trim() || null }), "Equipment added", () => setEquipmentForm({ name: "", category: "Strength", quantity: 1, notes: "" })); };
-  const addLead = (e: React.FormEvent) => { e.preventDefault(); if (!gym || !leadForm.full_name.trim()) return; save(db.from("gym_leads").insert({ gym_id: gym.id, full_name: leadForm.full_name.trim(), phone: leadForm.phone || null, email: leadForm.email || null, source: leadForm.source || "manual", status: "new", notes: leadForm.notes || null }), "Lead added", () => setLeadForm({ full_name: "", phone: "", email: "", source: "Walk-in", notes: "" })); };
-  const updateLeadStatus = (lead: Lead, status: string) => save(db.from("gym_leads").update({ status, updated_at: new Date().toISOString() }).eq("id", lead.id).eq("gym_id", lead.gym_id), "Lead updated");
-  const addPayment = (e: React.FormEvent) => { e.preventDefault(); if (!gym || !paymentForm.amount) return; save(db.from("gym_payments").insert({ gym_id: gym.id, member_id: paymentForm.member_id || null, amount: Number(paymentForm.amount), currency: "INR", status: "paid", method: paymentForm.method || "cash", notes: paymentForm.notes || null, paid_at: new Date().toISOString() }), "Payment recorded", () => setPaymentForm({ member_id: "", amount: "", method: "cash", notes: "" })); };
-  const addAnnouncement = (e: React.FormEvent) => { e.preventDefault(); if (!gym || !announcementForm.title.trim() || !announcementForm.body.trim()) return; save(db.from("gym_announcements").insert({ gym_id: gym.id, title: announcementForm.title.trim(), body: announcementForm.body.trim(), audience: announcementForm.audience, is_published: true }), "Announcement published", () => setAnnouncementForm({ title: "", body: "", audience: "all_members" })); };
-  const toggleAnnouncement = (a: Announcement) => save(db.from("gym_announcements").update({ is_published: !a.is_published, updated_at: new Date().toISOString() }).eq("id", a.id).eq("gym_id", a.gym_id), a.is_published ? "Announcement hidden" : "Announcement published");
-  const memberName = (id?: string | null) => members.find((m) => m.id === id)?.full_name || "Walk-in / unassigned";
-
-  return <Layout hideFooter><section className="container-wide py-8 md:py-10">{loading ? <div className="py-24 flex justify-center"><Loader2 className="animate-spin text-accent" /></div> : !gym ? <div className="max-w-xl py-20"><h1 className="font-display text-3xl font-bold mb-3">Access not active</h1><p className="text-foreground/70">This account is not linked to an active approved gym. Validate your access code or contact support.</p></div> : <>
-    <div className="flex flex-col gap-6 border-b border-separator pb-8 md:flex-row md:items-end md:justify-between"><div><p className="text-label mb-2">Gym owner workspace</p><h1 className="font-display text-4xl md:text-6xl font-bold tracking-[-0.04em]">{gym.name}</h1><p className="mt-3 text-sm text-foreground/60">{gym.city || "City not set"} · {gym.status}</p></div><div className="flex flex-wrap gap-2"><button onClick={load} className="inline-flex items-center gap-2 px-4 py-2 border border-separator text-xs uppercase tracking-widest hover:bg-hover-bg"><RefreshCw size={14} /> Refresh</button><button onClick={logout} className="inline-flex items-center gap-2 px-4 py-2 border border-separator text-xs uppercase tracking-widest hover:bg-hover-bg"><LogOut size={14} /> Sign out</button></div></div>
-    <div className="my-8 grid grid-cols-2 lg:grid-cols-5 gap-px bg-separator border border-separator"><Metric icon={Users} label="Active members" value={activeMembers.length} /><Metric icon={CalendarCheck} label="Today check-ins" value={todayAttendance.length} /><Metric icon={UserCheck} label="New leads" value={leads.filter((l) => l.status === "new").length} /><Metric icon={CreditCard} label="Monthly revenue" value={monthlyRevenue} moneyValue /><Metric icon={Dumbbell} label="Equipment" value={equipment.length} /></div>
-    <div className="mb-8 flex gap-2 overflow-x-auto pb-2">{tabs.map((item) => <button key={item.key} onClick={() => setTab(item.key)} className={`inline-flex items-center gap-2 border px-4 py-3 text-xs uppercase tracking-widest whitespace-nowrap ${tab === item.key ? "border-accent bg-accent text-accent-foreground" : "border-separator text-foreground/70 hover:bg-hover-bg"}`}><item.icon size={14} /> {item.label}</button>)}</div>
-    {tab === "overview" && <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]"><Panel title="Today at a glance"><div className="grid md:grid-cols-4 gap-px bg-separator border border-separator"><MiniStat label="Members" value={`${activeMembers.length}/${gym.member_capacity || "∞"}`} /><MiniStat label="Check-ins today" value={String(todayAttendance.length)} /><MiniStat label="Open leads" value={String(leads.filter((l) => l.status !== "converted").length)} /><MiniStat label="Revenue this month" value={money(monthlyRevenue)} /></div></Panel><Panel title="Quick actions"><div className="grid gap-3"><button onClick={() => setTab("members")} className={actionClass}><Plus size={15} /> Add member</button><button onClick={() => setTab("attendance")} className={actionClass}><UserCheck size={15} /> Manual check-in</button><button onClick={() => setTab("leads")} className={actionClass}><UserCheck size={15} /> Add lead</button><button onClick={() => setTab("payments")} className={actionClass}><CreditCard size={15} /> Record payment</button><button onClick={() => setTab("announcements")} className={actionClass}><Bell size={15} /> Publish announcement</button></div></Panel></div>}
-    {tab === "members" && <TwoCol title="Add member"><form onSubmit={addMember} className="space-y-4"><Input label="Full name" value={memberForm.full_name} onChange={(v) => setMemberForm({ ...memberForm, full_name: v })} required /><Input label="Email" value={memberForm.email} onChange={(v) => setMemberForm({ ...memberForm, email: v })} type="email" /><Input label="Phone" value={memberForm.phone} onChange={(v) => setMemberForm({ ...memberForm, phone: v })} /><Input label="Membership tier" value={memberForm.membership_tier} onChange={(v) => setMemberForm({ ...memberForm, membership_tier: v })} /><Submit saving={saving}>Save member</Submit></form></TwoCol>} {tab === "members" && <ListPanel title="Members" empty="No members added yet.">{members.map((m) => <MemberRow key={m.id} member={m} onToggle={() => toggleMember(m)} />)}</ListPanel>}
-    {tab === "attendance" && <TwoCol title="Manual check-in"><form onSubmit={checkIn} className="space-y-4"><Select label="Member" value={attendanceMemberId} onChange={setAttendanceMemberId} options={activeMembers.map((m) => [m.id, m.full_name])} /><Submit saving={saving}>Check in</Submit></form></TwoCol>} {tab === "attendance" && <ListPanel title="Recent attendance" empty="No attendance logs yet.">{attendance.map((r) => <AttendanceItem key={r.id} row={r} name={memberName(r.member_id)} onCheckout={() => checkOut(r)} />)}</ListPanel>}
-    {tab === "equipment" && <TwoCol title="Add equipment"><form onSubmit={addEquipment} className="space-y-4"><Input label="Name" value={equipmentForm.name} onChange={(v) => setEquipmentForm({ ...equipmentForm, name: v })} required /><Input label="Category" value={equipmentForm.category} onChange={(v) => setEquipmentForm({ ...equipmentForm, category: v })} /><Input label="Quantity" type="number" value={String(equipmentForm.quantity)} onChange={(v) => setEquipmentForm({ ...equipmentForm, quantity: Number(v) })} /><Input label="Notes" value={equipmentForm.notes} onChange={(v) => setEquipmentForm({ ...equipmentForm, notes: v })} /><Submit saving={saving}>Save equipment</Submit></form></TwoCol>} {tab === "equipment" && <ListPanel title="Equipment inventory" empty="No equipment added yet.">{equipment.map((i) => <EquipmentItem key={i.id} item={i} />)}</ListPanel>}
-    {tab === "leads" && <TwoCol title="Add lead"><form onSubmit={addLead} className="space-y-4"><Input label="Full name" value={leadForm.full_name} onChange={(v) => setLeadForm({ ...leadForm, full_name: v })} required /><Input label="Phone" value={leadForm.phone} onChange={(v) => setLeadForm({ ...leadForm, phone: v })} /><Input label="Email" value={leadForm.email} onChange={(v) => setLeadForm({ ...leadForm, email: v })} /><Input label="Source" value={leadForm.source} onChange={(v) => setLeadForm({ ...leadForm, source: v })} /><Input label="Notes" value={leadForm.notes} onChange={(v) => setLeadForm({ ...leadForm, notes: v })} /><Submit saving={saving}>Save lead</Submit></form></TwoCol>} {tab === "leads" && <ListPanel title="Leads pipeline" empty="No leads yet.">{leads.map((l) => <LeadItem key={l.id} lead={l} onStatus={(s) => updateLeadStatus(l, s)} />)}</ListPanel>}
-    {tab === "payments" && <TwoCol title="Record payment"><form onSubmit={addPayment} className="space-y-4"><Select label="Member" value={paymentForm.member_id} onChange={(v) => setPaymentForm({ ...paymentForm, member_id: v })} options={members.map((m) => [m.id, m.full_name])} includeEmpty="Walk-in / unassigned" /><Input label="Amount" type="number" value={paymentForm.amount} onChange={(v) => setPaymentForm({ ...paymentForm, amount: v })} required /><Input label="Method" value={paymentForm.method} onChange={(v) => setPaymentForm({ ...paymentForm, method: v })} /><Input label="Notes" value={paymentForm.notes} onChange={(v) => setPaymentForm({ ...paymentForm, notes: v })} /><Submit saving={saving}>Record payment</Submit></form></TwoCol>} {tab === "payments" && <ListPanel title="Payment ledger" empty="No payments recorded yet.">{payments.map((p) => <PaymentItem key={p.id} payment={p} name={memberName(p.member_id)} />)}</ListPanel>}
-    {tab === "announcements" && <TwoCol title="Publish announcement"><form onSubmit={addAnnouncement} className="space-y-4"><Input label="Title" value={announcementForm.title} onChange={(v) => setAnnouncementForm({ ...announcementForm, title: v })} required /><Input label="Audience" value={announcementForm.audience} onChange={(v) => setAnnouncementForm({ ...announcementForm, audience: v })} /><Textarea label="Message" value={announcementForm.body} onChange={(v) => setAnnouncementForm({ ...announcementForm, body: v })} /><Submit saving={saving}>Publish</Submit></form></TwoCol>} {tab === "announcements" && <ListPanel title="Announcements" empty="No announcements yet.">{announcements.map((a) => <AnnouncementItem key={a.id} item={a} onToggle={() => toggleAnnouncement(a)} />)}</ListPanel>}
-    {tab === "reports" && <Panel title="Reports"><div className="grid md:grid-cols-2 lg:grid-cols-5 gap-px bg-separator border border-separator mb-8"><MiniStat label="Total members" value={String(members.length)} /><MiniStat label="Inactive members" value={String(members.filter((m) => m.active === false).length)} /><MiniStat label="Monthly check-ins" value={String(monthlyAttendance.length)} /><MiniStat label="Revenue" value={money(monthlyRevenue)} /><MiniStat label="Open leads" value={String(leads.filter((l) => l.status !== "converted").length)} /></div><p className="text-sm text-foreground/65 leading-relaxed">Exports and payment gateway settlement reports can be connected after Razorpay/Stripe production keys are finalized.</p></Panel>}
-    {tab === "settings" && <Panel title="Gym settings"><div className="grid md:grid-cols-2 gap-px bg-separator border border-separator"><MiniStat label="Gym" value={gym.name} /><MiniStat label="Type" value={gym.gym_type || "Not set"} /><MiniStat label="Email" value={gym.email || "Not set"} /><MiniStat label="Phone" value={gym.phone || "Not set"} /></div></Panel>}
-  </>}</section></Layout>;
+function messageFromError(error: unknown) {
+  if (error instanceof PlatformApiError) return error.message;
+  if (error instanceof Error) return error.message;
+  return "The action could not be completed.";
 }
 
-function Metric({ icon: Icon, label, value, moneyValue }: { icon: LucideIcon; label: string; value: number; moneyValue?: boolean }) { return <div className="bg-background p-5 md:p-6"><Icon className="text-accent mb-5" size={20} /><p className="text-label mb-2">{label}</p><p className="font-display text-3xl md:text-4xl font-bold tracking-[-0.04em]">{moneyValue ? money(value) : value}</p></div>; }
-function MiniStat({ label, value }: { label: string; value: string }) { return <div className="bg-background p-5"><p className="text-label mb-2">{label}</p><p className="font-display text-2xl font-bold break-words">{value}</p></div>; }
-function Panel({ title, children }: { title: string; children: React.ReactNode }) { return <section className="border border-separator bg-hover-bg/20 p-5 md:p-6"><p className="text-label mb-5">{title}</p>{children}</section>; }
-function TwoCol({ title, children }: { title: string; children: React.ReactNode }) { return <div className="grid gap-8 lg:grid-cols-[380px_minmax(0,1fr)]"><Panel title={title}>{children}</Panel></div>; }
-function ListPanel({ title, empty, children }: { title: string; empty: string; children: React.ReactNode }) { return <div className="mt-8"><Panel title={title}><Rows empty={empty}>{children}</Rows></Panel></div>; }
-function Rows({ children, empty }: { children: React.ReactNode; empty: string }) { const count = Array.isArray(children) ? children.filter(Boolean).length : children ? 1 : 0; return <div className="border border-separator divide-y divide-separator">{count ? children : <div className="p-6 text-sm text-muted-foreground">{empty}</div>}</div>; }
-function Input({ label, value, onChange, type = "text", required = false }: { label: string; value: string; onChange: (value: string) => void; type?: string; required?: boolean }) { return <label className="block space-y-2"><span className="text-xs uppercase tracking-widest text-foreground/60">{label}</span><input className="lv-input" type={type} value={value} onChange={(e) => onChange(e.target.value)} required={required} /></label>; }
-function Textarea({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) { return <label className="block space-y-2"><span className="text-xs uppercase tracking-widest text-foreground/60">{label}</span><textarea className="lv-input min-h-28" value={value} onChange={(e) => onChange(e.target.value)} required /></label>; }
-function Select({ label, value, onChange, options, includeEmpty = "Select…" }: { label: string; value: string; onChange: (value: string) => void; options: string[][]; includeEmpty?: string }) { return <label className="block space-y-2"><span className="text-xs uppercase tracking-widest text-foreground/60">{label}</span><select className="lv-input" value={value} onChange={(e) => onChange(e.target.value)}><option value="">{includeEmpty}</option>{options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>; }
-function Submit({ saving, children }: { saving: boolean; children: React.ReactNode }) { return <button disabled={saving} className="w-full inline-flex justify-center gap-2 bg-accent px-5 py-3 text-xs font-semibold uppercase tracking-widest text-accent-foreground disabled:opacity-50">{saving && <Loader2 size={14} className="animate-spin" />}{children}</button>; }
-function MemberRow({ member, onToggle }: { member: Member; onToggle: () => void }) { return <div className="p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div><p className="font-medium">{member.full_name}</p><p className="text-xs text-muted-foreground">{member.email || "No email"} · {member.phone || "No phone"} · {member.membership_tier || "No plan"}</p></div><button onClick={onToggle} className={`inline-flex items-center gap-2 px-3 py-2 border text-xs uppercase tracking-widest ${member.active ? "border-accent/40 text-accent" : "border-destructive/40 text-destructive"}`}>{member.active ? <CheckCircle2 size={14} /> : <XCircle size={14} />}{member.active ? "Active" : "Inactive"}</button></div>; }
-function AttendanceItem({ row, name, onCheckout }: { row: AttendanceRow; name: string; onCheckout: () => void }) { return <div className="p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div><p className="font-medium">{name}</p><p className="text-xs text-muted-foreground">In: {formatDate(row.checked_in_at)} · Out: {formatDate(row.checked_out_at)}</p></div>{!row.checked_out_at && <button onClick={onCheckout} className="inline-flex items-center justify-center gap-2 bg-accent px-3 py-2 text-xs uppercase tracking-widest text-accent-foreground">Check out</button>}</div>; }
-function EquipmentItem({ item }: { item: EquipmentRow }) { return <div className="p-4"><p className="font-medium">{item.name}</p><p className="text-xs text-muted-foreground">{item.category || "Uncategorized"} · Qty {item.quantity} · {item.status}</p>{item.notes && <p className="mt-2 text-sm text-foreground/60">{item.notes}</p>}</div>; }
-function LeadItem({ lead, onStatus }: { lead: Lead; onStatus: (status: string) => void }) { return <div className="p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div><p className="font-medium">{lead.full_name}</p><p className="text-xs text-muted-foreground">{lead.phone || "No phone"} · {lead.email || "No email"} · {lead.source || "manual"} · {lead.status}</p>{lead.notes && <p className="mt-2 text-sm text-foreground/60">{lead.notes}</p>}</div><div className="flex gap-2"><button onClick={() => onStatus("contacted")} className="px-3 py-2 border border-separator text-xs uppercase">Contacted</button><button onClick={() => onStatus("converted")} className="px-3 py-2 bg-accent text-accent-foreground text-xs uppercase">Converted</button></div></div>; }
-function PaymentItem({ payment, name }: { payment: Payment; name: string }) { return <div className="p-4"><p className="font-medium">{money(payment.amount, payment.currency)} · {name}</p><p className="text-xs text-muted-foreground">{payment.method || "manual"} · {payment.status} · {formatDate(payment.paid_at)}</p>{payment.notes && <p className="mt-2 text-sm text-foreground/60">{payment.notes}</p>}</div>; }
-function AnnouncementItem({ item, onToggle }: { item: Announcement; onToggle: () => void }) { return <div className="p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div><p className="font-medium">{item.title}</p><p className="text-sm text-foreground/60">{item.body}</p><p className="mt-1 text-xs text-muted-foreground">{item.audience} · {item.is_published ? "published" : "hidden"} · {formatDate(item.created_at)}</p></div><button onClick={onToggle} className="px-3 py-2 border border-separator text-xs uppercase tracking-widest">{item.is_published ? "Hide" : "Publish"}</button></div>; }
+export default function OwnerWorkspace() {
+  const [workspace, setWorkspace] = useState<PlatformWorkspace | null>(null);
+  const [tab, setTab] = useState<TabKey>("overview");
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [memberForm, setMemberForm] = useState<MemberForm>(emptyMember);
+  const [equipmentForm, setEquipmentForm] = useState<EquipmentForm>(emptyEquipment);
+  const [leadForm, setLeadForm] = useState<LeadForm>(emptyLead);
+  const [paymentForm, setPaymentForm] = useState<PaymentForm>(emptyPayment);
+  const [announcementForm, setAnnouncementForm] = useState<AnnouncementForm>(emptyAnnouncement);
+  const [profileForm, setProfileForm] = useState<ProfileForm>({ name: "", phone: "", email: "", address: "", city: "", state: "", pincode: "", description: "" });
+
+  const load = async ({ background = false }: { background?: boolean } = {}) => {
+    if (background) setRefreshing(true);
+    else setLoading(true);
+    setError(null);
+    try {
+      const data = await platformApi.getWorkspace();
+      setWorkspace(data);
+      setProfileForm({
+        name: data.gym.name || "",
+        phone: data.gym.phone || "",
+        email: data.gym.email || data.gym.contact_email || "",
+        address: data.gym.address || "",
+        city: data.gym.city || "",
+        state: data.gym.state || "",
+        pincode: data.gym.pincode || "",
+        description: data.gym.description || "",
+      });
+    } catch (requestError) {
+      const message = messageFromError(requestError);
+      if (requestError instanceof PlatformApiError && requestError.sessionExpired) {
+        await supabase.auth.signOut();
+        window.location.replace("/gym-management/login");
+        return;
+      }
+      setError(message);
+      toast.error("Could not load gym workspace", { description: message });
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => { void load(); }, []);
+
+  const members = workspace?.members ?? [];
+  const activeMembers = useMemo(() => members.filter((member) => ["active", "approved"].includes(member.status)), [members]);
+  const openAttendance = useMemo(() => (workspace?.attendance ?? []).filter((row) => row.status === "checked_in" && !row.check_out_at), [workspace]);
+  const todayAttendance = useMemo(() => (workspace?.attendance ?? []).filter((row) => row.date === todayKey() || String(row.check_in_at ?? "").startsWith(todayKey())), [workspace]);
+  const monthlyGymRevenue = useMemo(() => {
+    const now = new Date();
+    return (workspace?.payments ?? []).filter((payment) => {
+      const date = new Date(payment.paid_at);
+      return payment.status === "paid" && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+    }).reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  }, [workspace]);
+
+  const memberMap = useMemo(() => new Map(members.map((member) => [`${member.member_type}:${member.id}`, member])), [members]);
+  const memberForAttendance = (row: PlatformAttendance) => {
+    if (row.membership_id) return memberMap.get(`app:${row.membership_id}`);
+    if (row.manual_member_id) return memberMap.get(`manual:${row.manual_member_id}`);
+    return members.find((member) => member.user_id && member.user_id === row.user_id);
+  };
+
+  const mutate = async (operation: () => Promise<unknown>, success: string, after?: () => void) => {
+    setSaving(true);
+    setError(null);
+    try {
+      await operation();
+      toast.success(success);
+      after?.();
+      await load({ background: true });
+    } catch (requestError) {
+      const message = messageFromError(requestError);
+      setError(message);
+      toast.error("Action failed", { description: message });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const logout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = "/";
+  };
+
+  const addMember = (event: React.FormEvent) => {
+    event.preventDefault();
+    void mutate(() => platformApi.addManualMember(memberForm), "Member added", () => setMemberForm(emptyMember));
+  };
+
+  const updateMemberStatus = (member: PlatformMember, status: string) => {
+    void mutate(() => platformApi.updateMember(member.member_type, member.id, { status }), "Member status updated");
+  };
+
+  const checkIn = (member: PlatformMember) => {
+    void mutate(() => platformApi.checkIn({ member_type: member.member_type, member_id: member.id, method: "manual", date: todayKey() }), `${member.full_name} checked in`);
+  };
+
+  const checkOut = (row: PlatformAttendance) => {
+    void mutate(() => platformApi.checkOut(row.log_id), "Member checked out");
+  };
+
+  const addEquipment = (event: React.FormEvent) => {
+    event.preventDefault();
+    void mutate(() => platformApi.addEquipment({ ...equipmentForm, available: true }), "Equipment added", () => setEquipmentForm(emptyEquipment));
+  };
+
+  const toggleEquipment = (item: PlatformEquipment) => {
+    void mutate(() => platformApi.updateEquipment(item.equipment_id || item.id || "", { available: !item.available }), item.available ? "Equipment marked unavailable" : "Equipment marked available");
+  };
+
+  const deleteEquipment = (item: PlatformEquipment) => {
+    if (!window.confirm(`Delete ${item.name}?`)) return;
+    void mutate(() => platformApi.deleteEquipment(item.equipment_id || item.id || ""), "Equipment deleted");
+  };
+
+  const addLead = (event: React.FormEvent) => {
+    event.preventDefault();
+    void mutate(() => platformApi.addLead(leadForm), "Lead added", () => setLeadForm(emptyLead));
+  };
+
+  const setLeadStatus = (lead: PlatformLead, status: string) => {
+    void mutate(() => platformApi.updateLead(lead.lead_id || lead.id || "", { status }), "Lead updated");
+  };
+
+  const addPayment = (event: React.FormEvent) => {
+    event.preventDefault();
+    const member = members.find((item) => item.id === paymentForm.member_id);
+    void mutate(() => platformApi.addPayment({
+      member_id: paymentForm.member_id || null,
+      member_type: member?.member_type,
+      amount: Number(paymentForm.amount),
+      currency: "INR",
+      status: "paid",
+      method: paymentForm.method,
+      notes: paymentForm.notes,
+    }), "Payment recorded", () => setPaymentForm(emptyPayment));
+  };
+
+  const addAnnouncement = (event: React.FormEvent) => {
+    event.preventDefault();
+    void mutate(() => platformApi.addAnnouncement({ ...announcementForm, is_published: true }), "Announcement published", () => setAnnouncementForm(emptyAnnouncement));
+  };
+
+  const toggleAnnouncement = (announcement: PlatformAnnouncement) => {
+    void mutate(() => platformApi.updateAnnouncement(announcement.id, { is_published: !announcement.is_published }), announcement.is_published ? "Announcement hidden" : "Announcement published");
+  };
+
+  const saveProfile = (event: React.FormEvent) => {
+    event.preventDefault();
+    void mutate(() => platformApi.updateProfile(profileForm), "Gym profile updated");
+  };
+
+  if (loading) {
+    return <Layout hideFooter><div className="container-wide flex min-h-[65vh] items-center justify-center"><Loader2 className="animate-spin text-accent" size={28} /></div></Layout>;
+  }
+
+  if (!workspace) {
+    return (
+      <Layout>
+        <section className="container-wide max-w-2xl py-24">
+          <StatusPanel title="Gym workspace unavailable" message={error || "This account is not connected to an approved gym."} onRetry={() => void load()} />
+        </section>
+      </Layout>
+    );
+  }
+
+  const gym = workspace.gym;
+  const commissions = workspace.commission_summary;
+
+  return (
+    <Layout hideFooter>
+      <section className="container-wide py-8 md:py-10">
+        <header className="flex flex-col gap-6 border-b border-separator pb-8 md:flex-row md:items-end md:justify-between">
+          <div>
+            <div className="mb-3 flex items-center gap-2 text-label"><ShieldCheck size={14} /> Shared app + website workspace</div>
+            <h1 className="font-display text-4xl font-bold tracking-[-0.04em] md:text-6xl">{gym.name}</h1>
+            <p className="mt-3 text-sm text-foreground/60">{[gym.city, gym.state, gym.country].filter(Boolean).join(" · ") || "Location not configured"} · {gym.status}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => void load({ background: true })} disabled={refreshing} className="inline-flex items-center gap-2 border border-separator px-4 py-2 text-xs uppercase tracking-widest hover:bg-hover-bg disabled:opacity-50"><RefreshCw size={14} className={refreshing ? "animate-spin" : ""} /> Refresh</button>
+            <button onClick={logout} className="inline-flex items-center gap-2 border border-separator px-4 py-2 text-xs uppercase tracking-widest hover:bg-hover-bg"><LogOut size={14} /> Sign out</button>
+          </div>
+        </header>
+
+        {error && <div className="mt-6"><StatusPanel title="Action needs attention" message={error} onRetry={() => void load({ background: true })} /></div>}
+
+        <div className="my-8 grid grid-cols-2 gap-px border border-separator bg-separator lg:grid-cols-5">
+          <Metric icon={Users} label="Active members" value={String(activeMembers.length)} />
+          <Metric icon={CalendarCheck} label="Today check-ins" value={String(todayAttendance.length)} />
+          <Metric icon={IndianRupee} label="Gym revenue" value={formatMoney(monthlyGymRevenue)} />
+          <Metric icon={BadgeIndianRupee} label="Pending commission" value={formatMoney(commissions.pending, commissions.currency)} />
+          <Metric icon={Dumbbell} label="Equipment" value={String(workspace.equipment.length)} />
+        </div>
+
+        <nav className="mb-8 flex gap-2 overflow-x-auto pb-2">
+          {tabs.map((item) => <button key={item.key} onClick={() => setTab(item.key)} className={`inline-flex items-center gap-2 whitespace-nowrap border px-4 py-3 text-xs uppercase tracking-widest ${tab === item.key ? "border-accent bg-accent text-accent-foreground" : "border-separator text-foreground/70 hover:bg-hover-bg"}`}><item.icon size={14} /> {item.label}</button>)}
+        </nav>
+
+        {tab === "overview" && (
+          <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_420px]">
+            <div className="space-y-8">
+              <Panel title="Live operations" description="Canonical records used by both the native app and website.">
+                <div className="grid gap-px border border-separator bg-separator md:grid-cols-4">
+                  <MiniStat label="Total members" value={String(members.length)} />
+                  <MiniStat label="Inside now" value={String(openAttendance.length)} />
+                  <MiniStat label="Open leads" value={String(workspace.leads.filter((lead) => !["converted", "lost", "closed"].includes(lead.status)).length)} />
+                  <MiniStat label="App commission" value={formatMoney(commissions.total, commissions.currency)} />
+                </div>
+              </Panel>
+
+              <Panel title="Recent attendance" description="Latest verified gym visits.">
+                <div className="space-y-2">
+                  {workspace.attendance.slice(0, 8).map((row) => {
+                    const member = memberForAttendance(row);
+                    return <div key={row.log_id} className="flex items-center gap-3 border border-separator p-3"><CalendarCheck size={16} className="text-accent" /><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{member?.full_name || "Gym member"}</p><p className="text-xs text-muted-foreground">{formatDate(row.check_in_at)} · {row.status}</p></div>{row.duration_minutes != null && <span className="font-mono text-xs text-muted-foreground">{row.duration_minutes} min</span>}</div>;
+                  })}
+                  {!workspace.attendance.length && <EmptyState icon={CalendarCheck} title="No attendance yet" body="Check in an active member from the Attendance tab." />}
+                </div>
+              </Panel>
+            </div>
+
+            <div className="space-y-8">
+              <Panel title="Quick actions">
+                <div className="grid gap-3">
+                  <QuickAction icon={Users} label="Add member" onClick={() => setTab("members")} />
+                  <QuickAction icon={UserCheck} label="Record check-in" onClick={() => setTab("attendance")} />
+                  <QuickAction icon={CreditCard} label="Record gym payment" onClick={() => setTab("payments")} />
+                  <QuickAction icon={Megaphone} label="Publish announcement" onClick={() => setTab("announcements")} />
+                </div>
+              </Panel>
+
+              <Panel title="Gym referral" description="Members using this code are attributed to your gym for the 20% commission model.">
+                <div className="border border-accent/30 bg-accent/5 p-5">
+                  <p className="font-mono text-2xl font-bold tracking-[0.12em] text-accent">{gym.referral_code || "Not generated"}</p>
+                </div>
+              </Panel>
+            </div>
+          </div>
+        )}
+
+        {tab === "members" && (
+          <div className="grid gap-8 xl:grid-cols-[380px_minmax(0,1fr)]">
+            <Panel title="Add manual member" description="App users join through the referral code; use this form for offline gym members.">
+              <form onSubmit={addMember} className="space-y-4">
+                <Field label="Full name"><input className="lv-input" value={memberForm.name} onChange={(event) => setMemberForm((form) => ({ ...form, name: event.target.value }))} required maxLength={120} /></Field>
+                <Field label="Email"><input className="lv-input" type="email" value={memberForm.email} onChange={(event) => setMemberForm((form) => ({ ...form, email: event.target.value }))} /></Field>
+                <Field label="Phone"><input className="lv-input" value={memberForm.phone} onChange={(event) => setMemberForm((form) => ({ ...form, phone: event.target.value }))} /></Field>
+                <Field label="Notes"><textarea className="lv-input min-h-24" value={memberForm.notes} onChange={(event) => setMemberForm((form) => ({ ...form, notes: event.target.value }))} maxLength={500} /></Field>
+                <SubmitButton saving={saving} label="Add member" />
+              </form>
+            </Panel>
+
+            <Panel title="All members" description={`${workspace.app_members.length} app-linked · ${workspace.manual_members.length} manual`}>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[760px] text-left text-sm">
+                  <thead className="border-b border-separator text-xs uppercase tracking-widest text-muted-foreground"><tr><th className="p-3">Member</th><th className="p-3">Type</th><th className="p-3">Status</th><th className="p-3">Joined</th><th className="p-3 text-right">Actions</th></tr></thead>
+                  <tbody className="divide-y divide-separator">
+                    {members.map((member) => {
+                      const active = ["active", "approved"].includes(member.status);
+                      return <tr key={`${member.member_type}-${member.id}`}><td className="p-3"><p className="font-medium">{member.full_name}</p><p className="text-xs text-muted-foreground">{member.email || member.phone || "No contact"}</p></td><td className="p-3"><Badge text={member.member_type === "app" ? "App member" : "Manual"} tone={member.member_type === "app" ? "green" : "neutral"} /></td><td className="p-3"><Badge text={member.status} tone={active ? "green" : "neutral"} /></td><td className="p-3 text-xs text-muted-foreground">{formatDate(member.joined_at || member.created_at)}</td><td className="p-3"><div className="flex justify-end gap-2"><button disabled={saving || !active} onClick={() => checkIn(member)} className="border border-separator px-3 py-2 text-[10px] uppercase tracking-widest disabled:opacity-40">Check in</button><button disabled={saving} onClick={() => updateMemberStatus(member, active ? "inactive" : "active")} className="border border-separator px-3 py-2 text-[10px] uppercase tracking-widest">{active ? "Deactivate" : "Activate"}</button></div></td></tr>;
+                    })}
+                  </tbody>
+                </table>
+                {!members.length && <EmptyState icon={Users} title="No members" body="Add a manual member or share the referral code with app users." />}
+              </div>
+            </Panel>
+          </div>
+        )}
+
+        {tab === "attendance" && (
+          <div className="grid gap-8 xl:grid-cols-[420px_minmax(0,1fr)]">
+            <Panel title="Currently inside" description={`${openAttendance.length} open sessions`}>
+              <div className="space-y-3">
+                {openAttendance.map((row) => {
+                  const member = memberForAttendance(row);
+                  return <div key={row.log_id} className="flex items-center gap-3 border border-accent/30 bg-accent/5 p-4"><CheckCircle2 size={18} className="text-accent" /><div className="min-w-0 flex-1"><p className="truncate font-medium">{member?.full_name || "Gym member"}</p><p className="text-xs text-muted-foreground">In since {formatDate(row.check_in_at)}</p></div><button disabled={saving} onClick={() => checkOut(row)} className="border border-separator px-3 py-2 text-[10px] uppercase tracking-widest">Check out</button></div>;
+                })}
+                {!openAttendance.length && <EmptyState icon={UserCheck} title="No active check-ins" body="Use the member table to check someone in." />}
+              </div>
+            </Panel>
+
+            <Panel title="Attendance history" description={`${todayAttendance.length} visits today`}>
+              <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-left text-sm"><thead className="border-b border-separator text-xs uppercase tracking-widest text-muted-foreground"><tr><th className="p-3">Member</th><th className="p-3">Check in</th><th className="p-3">Check out</th><th className="p-3">Duration</th><th className="p-3">Method</th></tr></thead><tbody className="divide-y divide-separator">{workspace.attendance.slice(0, 300).map((row) => { const member = memberForAttendance(row); return <tr key={row.log_id}><td className="p-3 font-medium">{member?.full_name || "Gym member"}</td><td className="p-3 text-xs text-muted-foreground">{formatDate(row.check_in_at)}</td><td className="p-3 text-xs text-muted-foreground">{formatDate(row.check_out_at)}</td><td className="p-3 font-mono text-xs">{row.duration_minutes == null ? "—" : `${row.duration_minutes} min`}</td><td className="p-3 text-xs text-muted-foreground">{row.method || "app"}</td></tr>; })}</tbody></table></div>
+            </Panel>
+          </div>
+        )}
+
+        {tab === "equipment" && (
+          <div className="grid gap-8 xl:grid-cols-[380px_minmax(0,1fr)]">
+            <Panel title="Add equipment"><form onSubmit={addEquipment} className="space-y-4"><Field label="Name"><input className="lv-input" value={equipmentForm.name} onChange={(event) => setEquipmentForm((form) => ({ ...form, name: event.target.value }))} required /></Field><Field label="Category"><input className="lv-input" value={equipmentForm.category} onChange={(event) => setEquipmentForm((form) => ({ ...form, category: event.target.value }))} /></Field><Field label="Quantity"><input className="lv-input" type="number" min={1} max={100000} value={equipmentForm.quantity} onChange={(event) => setEquipmentForm((form) => ({ ...form, quantity: Number(event.target.value) }))} required /></Field><SubmitButton saving={saving} label="Save equipment" /></form></Panel>
+            <Panel title="Equipment inventory" description="Shared with the mobile owner dashboard."><div className="grid gap-3 md:grid-cols-2">{workspace.equipment.map((item) => <div key={item.equipment_id || item.id} className="flex items-center gap-3 border border-separator p-4"><Dumbbell size={18} className={item.available ? "text-accent" : "text-muted-foreground"} /><div className="min-w-0 flex-1"><p className="truncate font-medium">{item.name}</p><p className="text-xs text-muted-foreground">{item.category || "General"} · Qty {item.quantity}</p></div><button onClick={() => toggleEquipment(item)} className="p-2">{item.available ? <ToggleRight className="text-accent" /> : <ToggleLeft />}</button><button onClick={() => deleteEquipment(item)} className="p-2 text-destructive"><Trash2 size={17} /></button></div>)}{!workspace.equipment.length && <EmptyState icon={Dumbbell} title="No equipment" body="Add your first equipment item." />}</div></Panel>
+          </div>
+        )}
+
+        {tab === "leads" && (
+          <div className="grid gap-8 xl:grid-cols-[380px_minmax(0,1fr)]">
+            <Panel title="Add lead"><form onSubmit={addLead} className="space-y-4"><Field label="Name"><input className="lv-input" value={leadForm.name} onChange={(event) => setLeadForm((form) => ({ ...form, name: event.target.value }))} required /></Field><Field label="Phone"><input className="lv-input" value={leadForm.phone} onChange={(event) => setLeadForm((form) => ({ ...form, phone: event.target.value }))} /></Field><Field label="Email"><input className="lv-input" type="email" value={leadForm.email} onChange={(event) => setLeadForm((form) => ({ ...form, email: event.target.value }))} /></Field><Field label="Source"><input className="lv-input" value={leadForm.source} onChange={(event) => setLeadForm((form) => ({ ...form, source: event.target.value }))} /></Field><Field label="Message"><textarea className="lv-input min-h-24" value={leadForm.message} onChange={(event) => setLeadForm((form) => ({ ...form, message: event.target.value }))} /></Field><SubmitButton saving={saving} label="Save lead" /></form></Panel>
+            <Panel title="Lead pipeline"><div className="space-y-3">{workspace.leads.map((lead) => <div key={lead.lead_id || lead.id} className="border border-separator p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-medium">{lead.name || lead.full_name}</p><p className="text-xs text-muted-foreground">{lead.phone || lead.email || lead.source || "No contact"}</p></div><Badge text={lead.status} tone={lead.status === "converted" ? "green" : "neutral"} /></div><div className="mt-4 flex flex-wrap gap-2"><LeadButton label="Contacted" onClick={() => setLeadStatus(lead, "contacted")} /><LeadButton label="Qualified" onClick={() => setLeadStatus(lead, "qualified")} /><LeadButton label="Converted" onClick={() => setLeadStatus(lead, "converted")} primary /><LeadButton label="Lost" onClick={() => setLeadStatus(lead, "lost")} /></div></div>)}{!workspace.leads.length && <EmptyState icon={ClipboardList} title="No leads" body="Website enquiries and manually added leads appear here." />}</div></Panel>
+          </div>
+        )}
+
+        {tab === "payments" && (
+          <div className="grid gap-8 xl:grid-cols-[380px_minmax(0,1fr)]">
+            <Panel title="Record gym payment" description="This records gym membership dues, not SE7EN FIT app subscriptions."><form onSubmit={addPayment} className="space-y-4"><Field label="Member (optional)"><select className="lv-input" value={paymentForm.member_id} onChange={(event) => setPaymentForm((form) => ({ ...form, member_id: event.target.value }))}><option value="">Walk-in / unassigned</option>{members.map((member) => <option key={`${member.member_type}-${member.id}`} value={member.id}>{member.full_name}</option>)}</select></Field><Field label="Amount"><input className="lv-input" type="number" min={1} step="0.01" value={paymentForm.amount} onChange={(event) => setPaymentForm((form) => ({ ...form, amount: event.target.value }))} required /></Field><Field label="Method"><select className="lv-input" value={paymentForm.method} onChange={(event) => setPaymentForm((form) => ({ ...form, method: event.target.value }))}><option value="cash">Cash</option><option value="upi">UPI</option><option value="card">Card</option><option value="bank_transfer">Bank transfer</option><option value="cheque">Cheque</option><option value="other">Other</option></select></Field><Field label="Notes"><textarea className="lv-input min-h-20" value={paymentForm.notes} onChange={(event) => setPaymentForm((form) => ({ ...form, notes: event.target.value }))} /></Field><SubmitButton saving={saving} label="Record payment" /></form></Panel>
+            <Panel title="Gym payment history" description={`${formatMoney(monthlyGymRevenue)} recorded this month`}><div className="overflow-x-auto"><table className="w-full min-w-[680px] text-left text-sm"><thead className="border-b border-separator text-xs uppercase tracking-widest text-muted-foreground"><tr><th className="p-3">Amount</th><th className="p-3">Method</th><th className="p-3">Status</th><th className="p-3">Date</th><th className="p-3">Notes</th></tr></thead><tbody className="divide-y divide-separator">{workspace.payments.map((payment) => <tr key={payment.id}><td className="p-3 font-mono font-medium">{formatMoney(payment.amount, payment.currency)}</td><td className="p-3 text-xs">{payment.method || "manual"}</td><td className="p-3"><Badge text={payment.status} tone={payment.status === "paid" ? "green" : "neutral"} /></td><td className="p-3 text-xs text-muted-foreground">{formatDate(payment.paid_at)}</td><td className="p-3 text-xs text-muted-foreground">{payment.notes || "—"}</td></tr>)}</tbody></table>{!workspace.payments.length && <EmptyState icon={CreditCard} title="No gym payments" body="Record the first gym membership payment." />}</div></Panel>
+          </div>
+        )}
+
+        {tab === "announcements" && (
+          <div className="grid gap-8 xl:grid-cols-[420px_minmax(0,1fr)]">
+            <Panel title="Publish announcement"><form onSubmit={addAnnouncement} className="space-y-4"><Field label="Title"><input className="lv-input" value={announcementForm.title} onChange={(event) => setAnnouncementForm((form) => ({ ...form, title: event.target.value }))} required /></Field><Field label="Message"><textarea className="lv-input min-h-40" value={announcementForm.body} onChange={(event) => setAnnouncementForm((form) => ({ ...form, body: event.target.value }))} required maxLength={4000} /></Field><Field label="Audience"><select className="lv-input" value={announcementForm.audience} onChange={(event) => setAnnouncementForm((form) => ({ ...form, audience: event.target.value }))}><option value="all_members">All members</option><option value="active_members">Active members</option><option value="staff">Staff</option></select></Field><SubmitButton saving={saving} label="Publish announcement" /></form></Panel>
+            <Panel title="Published updates"><div className="space-y-3">{workspace.announcements.map((announcement) => <div key={announcement.id} className="flex items-start gap-4 border border-separator p-4"><Megaphone size={18} className={announcement.is_published ? "mt-1 text-accent" : "mt-1 text-muted-foreground"} /><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><p className="font-medium">{announcement.title}</p><Badge text={announcement.is_published ? "Published" : "Hidden"} tone={announcement.is_published ? "green" : "neutral"} /></div><p className="mt-2 text-sm leading-relaxed text-foreground/70">{announcement.body}</p><p className="mt-2 text-xs text-muted-foreground">{announcement.audience} · {formatDate(announcement.created_at)}</p></div><button onClick={() => toggleAnnouncement(announcement)} className="p-2">{announcement.is_published ? <ToggleRight className="text-accent" /> : <ToggleLeft />}</button></div>)}{!workspace.announcements.length && <EmptyState icon={Bell} title="No announcements" body="Publish the first update for gym members." />}</div></Panel>
+          </div>
+        )}
+
+        {tab === "reports" && (
+          <div className="space-y-8">
+            <div className="grid gap-px border border-separator bg-separator sm:grid-cols-2 xl:grid-cols-5">
+              <Metric icon={Wallet} label="Total commission" value={formatMoney(commissions.total, commissions.currency)} />
+              <Metric icon={Activity} label="Pending" value={formatMoney(commissions.pending, commissions.currency)} />
+              <Metric icon={CheckCircle2} label="Approved" value={formatMoney(commissions.approved, commissions.currency)} />
+              <Metric icon={BadgeIndianRupee} label="Paid" value={formatMoney(commissions.paid, commissions.currency)} />
+              <Metric icon={XCircle} label="Reversed" value={formatMoney(commissions.reversed, commissions.currency)} />
+            </div>
+            <Panel title="SE7EN FIT partner commission ledger" description="Commission is 20% of successful attributed app subscription payments. Refunds and chargebacks are reversed before payout."><div className="overflow-x-auto"><table className="w-full min-w-[820px] text-left text-sm"><thead className="border-b border-separator text-xs uppercase tracking-widest text-muted-foreground"><tr><th className="p-3">Gross subscription</th><th className="p-3">Rate</th><th className="p-3">Commission</th><th className="p-3">Status</th><th className="p-3">Created</th></tr></thead><tbody className="divide-y divide-separator">{workspace.commissions.map((row) => <tr key={row.commission_id}><td className="p-3 font-mono">{formatMoney(row.gross_amount, row.currency)}</td><td className="p-3 font-mono">{Math.round(Number(row.commission_rate) * 100)}%</td><td className="p-3 font-mono font-bold text-accent">{formatMoney(row.commission_amount, row.currency)}</td><td className="p-3"><Badge text={row.status} tone={row.status === "paid" ? "green" : row.status === "reversed" ? "red" : "neutral"} /></td><td className="p-3 text-xs text-muted-foreground">{formatDate(row.created_at)}</td></tr>)}</tbody></table>{!workspace.commissions.length && <EmptyState icon={Wallet} title="No commission yet" body="Rows appear after referred members complete successful app subscription payments." />}</div></Panel>
+          </div>
+        )}
+
+        {tab === "settings" && (
+          <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
+            <Panel title="Gym profile" description="The same profile is displayed across the website and mobile app."><form onSubmit={saveProfile} className="grid gap-4 md:grid-cols-2"><Field label="Gym name"><input className="lv-input" value={profileForm.name} onChange={(event) => setProfileForm((form) => ({ ...form, name: event.target.value }))} required /></Field><Field label="Phone"><input className="lv-input" value={profileForm.phone} onChange={(event) => setProfileForm((form) => ({ ...form, phone: event.target.value }))} /></Field><Field label="Email"><input className="lv-input" type="email" value={profileForm.email} onChange={(event) => setProfileForm((form) => ({ ...form, email: event.target.value }))} /></Field><Field label="Address"><input className="lv-input" value={profileForm.address} onChange={(event) => setProfileForm((form) => ({ ...form, address: event.target.value }))} /></Field><Field label="City"><input className="lv-input" value={profileForm.city} onChange={(event) => setProfileForm((form) => ({ ...form, city: event.target.value }))} /></Field><Field label="State"><input className="lv-input" value={profileForm.state} onChange={(event) => setProfileForm((form) => ({ ...form, state: event.target.value }))} /></Field><Field label="Pincode"><input className="lv-input" value={profileForm.pincode} onChange={(event) => setProfileForm((form) => ({ ...form, pincode: event.target.value }))} /></Field><div className="md:col-span-2"><Field label="Description"><textarea className="lv-input min-h-32" value={profileForm.description} onChange={(event) => setProfileForm((form) => ({ ...form, description: event.target.value }))} maxLength={2000} /></Field></div><div className="md:col-span-2"><SubmitButton saving={saving} label="Save shared profile" /></div></form></Panel>
+            <Panel title="Connection status"><div className="space-y-3"><ConnectionRow label="Supabase database" value="Connected" /><ConnectionRow label="Native app backend" value="Connected" /><ConnectionRow label="Website workspace" value="Canonical API" /><ConnectionRow label="Gym ID" value={gym.gym_id} mono /><ConnectionRow label="Access" value={workspace.access} /></div></Panel>
+          </div>
+        )}
+      </section>
+    </Layout>
+  );
+}
+
+function Panel({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
+  return <section className="border border-separator bg-hover-bg/20 p-5 md:p-6"><div className="mb-5"><h2 className="font-display text-xl font-bold tracking-[-0.02em]">{title}</h2>{description && <p className="mt-1 text-sm leading-relaxed text-foreground/60">{description}</p>}</div>{children}</section>;
+}
+
+function Metric({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string }) {
+  return <div className="bg-background p-4"><Icon size={17} className="text-accent" /><p className="mt-3 text-[10px] uppercase tracking-widest text-muted-foreground">{label}</p><p className="mt-1 font-display text-xl font-bold">{value}</p></div>;
+}
+
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return <div className="bg-background p-4"><p className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</p><p className="mt-2 font-display text-xl font-bold">{value}</p></div>;
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return <label className="block space-y-2"><span className="text-xs uppercase tracking-widest text-foreground/70">{label}</span>{children}</label>;
+}
+
+function SubmitButton({ saving, label }: { saving: boolean; label: string }) {
+  return <button disabled={saving} type="submit" className="inline-flex items-center gap-2 bg-accent px-6 py-3 text-xs font-medium uppercase tracking-widest text-accent-foreground disabled:opacity-50">{saving ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}{label}</button>;
+}
+
+function QuickAction({ icon: Icon, label, onClick }: { icon: LucideIcon; label: string; onClick: () => void }) {
+  return <button onClick={onClick} className="flex items-center gap-3 border border-separator px-4 py-3 text-left text-xs uppercase tracking-widest hover:bg-hover-bg"><Icon size={16} className="text-accent" />{label}</button>;
+}
+
+function Badge({ text, tone }: { text: string; tone: "green" | "neutral" | "red" }) {
+  const classes = tone === "green" ? "border-accent/30 bg-accent/10 text-accent" : tone === "red" ? "border-destructive/30 bg-destructive/10 text-destructive" : "border-separator text-muted-foreground";
+  return <span className={`inline-flex border px-2 py-1 text-[9px] uppercase tracking-widest ${classes}`}>{text}</span>;
+}
+
+function LeadButton({ label, onClick, primary = false }: { label: string; onClick: () => void; primary?: boolean }) {
+  return <button onClick={onClick} className={`border px-3 py-2 text-[9px] uppercase tracking-widest ${primary ? "border-accent bg-accent text-accent-foreground" : "border-separator"}`}>{label}</button>;
+}
+
+function EmptyState({ icon: Icon, title, body }: { icon: LucideIcon; title: string; body: string }) {
+  return <div className="border border-dashed border-separator p-8 text-center"><Icon size={24} className="mx-auto text-muted-foreground" /><p className="mt-3 font-medium">{title}</p><p className="mt-1 text-sm text-muted-foreground">{body}</p></div>;
+}
+
+function StatusPanel({ title, message, onRetry }: { title: string; message: string; onRetry: () => void }) {
+  return <div className="border border-destructive/30 bg-destructive/5 p-6"><h2 className="font-display text-xl font-bold">{title}</h2><p className="mt-2 text-sm text-foreground/70">{message}</p><button onClick={onRetry} className="mt-5 inline-flex items-center gap-2 border border-separator px-4 py-2 text-xs uppercase tracking-widest"><RefreshCw size={14} /> Retry</button></div>;
+}
+
+function ConnectionRow({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
+  return <div className="flex items-start justify-between gap-4 border-b border-separator pb-3"><span className="text-xs text-muted-foreground">{label}</span><span className={`max-w-[60%] break-all text-right text-xs font-medium text-accent ${mono ? "font-mono" : ""}`}>{value}</span></div>;
+}
