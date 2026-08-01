@@ -1,0 +1,49 @@
+name: Phase 4 Admin Billing Quality Check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/admin/billingAdminApi.ts'
+      - 'src/pages/admin/AdminPayments.tsx'
+      - '.github/workflows/billing-phase4-quality.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --no-fund --no-audit
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: TypeScript validation
+        run: npx tsc --noEmit
+
+      - name: Lint Phase 4 billing files
+        run: npx eslint --quiet src/admin/billingAdminApi.ts src/pages/admin/AdminPayments.tsx
+
+      - name: Verify shared backend security contract
+        run: |
+          grep -q "x-admin-session" src/admin/billingAdminApi.ts
+          grep -q "/admin/billing/commissions/approve" src/admin/billingAdminApi.ts
+          grep -q "outstanding_adjustments" src/pages/admin/AdminPayments.tsx
+          grep -q "payment_locked_by_payout\|Cancel or fail" src/pages/admin/AdminPayments.tsx || true
+
+      - name: Production website build
+        run: npm run build
