@@ -2,43 +2,81 @@ import { CheckCircle2, ShieldCheck } from "lucide-react";
 import { AdminControlLayout } from "@/admin/AdminControlLayout";
 import { AdminSectionHeader, StatusBadge } from "@/admin/AdminUI";
 
-const envVars = [
-  "VITE_SUPABASE_URL",
-  "VITE_SUPABASE_PUBLISHABLE_KEY",
+const backendEnvVars = [
   "SUPABASE_URL",
   "SUPABASE_ANON_KEY",
   "SUPABASE_SERVICE_ROLE_KEY",
+  "AUTH_SECURITY_SECRET",
+  "OTP_HASH_SECRET",
   "ADMIN_SESSION_SECRET",
-  "ACCESS_CODE_PEPPER",
-  "PUBLIC_SITE_URL",
-  "ALLOWED_ORIGINS",
-  "BREVO_API_KEY",
-  "BREVO_FROM_EMAIL",
-  "ADMIN_NOTIFY_EMAIL",
+  "MAILJET_API_KEY",
+  "MAILJET_SECRET_KEY",
+  "MAILJET_FROM_EMAIL",
+  "RAZORPAY_KEY_SECRET",
+  "RAZORPAY_WEBHOOK_SECRET",
+];
+
+const frontendEnvVars = [
+  "VITE_API_BASE_URL",
+  "VITE_SUPABASE_URL",
+  "VITE_SUPABASE_PUBLISHABLE_KEY",
 ];
 
 const deploymentSteps = [
-  "Run the Supabase migration in supabase/migrations before deploying functions.",
-  "Deploy admin-session, admin-metrics, admin-requests, admin-users, admin-gyms, admin-payments, admin-access-codes, admin-audit-logs, search-router, validate-gym-code, and activate-gym-owner.",
-  "Set all function secrets in Supabase; never put service_role keys in Render or frontend env variables.",
-  "Create at least one Supabase Auth user with the super_admin role in public.user_roles.",
-  "Configure Render build command as npm run build and publish directory as dist.",
-  "Confirm the hidden search phrase unlocks /x7-control/login and public navigation has no admin links.",
+  "Treat the Render Node/Express API as the production business-logic authority.",
+  "Create all new production schema migrations in SE7EN-FIT/server/supabase/migrations only.",
+  "Do not add new production database migrations to this website repository.",
+  "Keep Supabase service-role, signing, mail, payment and provider secrets out of all VITE_ variables and frontend files.",
+  "Migrate the remaining super-admin Edge Function operations into the shared Render API before retiring the legacy Supabase function set.",
+  "Require production-gate, Android/native checks where applicable, dependency audit and CodeQL before release.",
+  "Rotate any credential that may have appeared in Git history, logs or copied configuration.",
 ];
 
 export default function AdminSettings() {
   return (
     <AdminControlLayout>
-      <AdminSectionHeader eyebrow="production" title="Settings" body="Operational checklist for keeping the SE7EN FIT admin dashboard secure in production." />
+      <AdminSectionHeader
+        eyebrow="production"
+        title="Settings"
+        body="Operational guardrails for the unified SE7EN FIT platform: one API authority, one migration authority, and server-side authorization for privileged work."
+      />
       <div className="grid gap-6 xl:grid-cols-2">
         <section className="border border-separator bg-background p-6">
-          <div className="mb-5 flex items-center gap-3"><ShieldCheck className="text-accent" size={20} /><h2 className="font-display text-2xl font-semibold tracking-[-0.03em]">Security checklist</h2></div>
-          <div className="space-y-3">{deploymentSteps.map((step) => <div key={step} className="flex gap-3 text-sm text-foreground/75"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-accent" /><span>{step}</span></div>)}</div>
+          <div className="mb-5 flex items-center gap-3">
+            <ShieldCheck className="text-accent" size={20} />
+            <h2 className="font-display text-2xl font-semibold tracking-[-0.03em]">Production checklist</h2>
+          </div>
+          <div className="space-y-3">
+            {deploymentSteps.map((step) => (
+              <div key={step} className="flex gap-3 text-sm text-foreground/75">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+                <span>{step}</span>
+              </div>
+            ))}
+          </div>
         </section>
+
         <section className="border border-separator bg-background p-6">
-          <div className="mb-5 flex items-center justify-between gap-3"><h2 className="font-display text-2xl font-semibold tracking-[-0.03em]">Required environment</h2><StatusBadge status="server only" /></div>
-          <div className="grid gap-2 sm:grid-cols-2">{envVars.map((name) => <div key={name} className="border border-separator bg-hover-bg/20 p-3 font-mono text-xs text-muted-foreground">{name}</div>)}</div>
-          <p className="mt-5 text-sm leading-relaxed text-muted-foreground">Only the two VITE_ variables belong in the frontend deployment. Supabase service_role, session signing, code pepper, and email provider secrets must stay in Supabase Edge Function secrets.</p>
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <h2 className="font-display text-2xl font-semibold tracking-[-0.03em]">Environment boundaries</h2>
+            <StatusBadge status="least privilege" />
+          </div>
+
+          <p className="text-label mb-3">Public frontend configuration</p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {frontendEnvVars.map((name) => (
+              <div key={name} className="border border-separator bg-hover-bg/20 p-3 font-mono text-xs text-muted-foreground">{name}</div>
+            ))}
+          </div>
+          <p className="mt-3 text-xs leading-relaxed text-muted-foreground">Every VITE_ value is visible to browser users. It must be safe to expose publicly.</p>
+
+          <p className="text-label mb-3 mt-6">Backend-only secrets</p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {backendEnvVars.map((name) => (
+              <div key={name} className="border border-separator bg-hover-bg/20 p-3 font-mono text-xs text-muted-foreground">{name}</div>
+            ))}
+          </div>
+          <p className="mt-3 text-xs leading-relaxed text-muted-foreground">Backend-only secrets belong in Render/Supabase/provider secret stores and must never be committed or compiled into this website.</p>
         </section>
       </div>
     </AdminControlLayout>
